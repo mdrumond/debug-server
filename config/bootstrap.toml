@@ -4,12 +4,13 @@ python_version = "3.11"
 use_conda = true
 conda_command = "conda"
 conda_environment_file = "environment.yml"
+conda_install_path = ".artifacts/miniconda3"
+conda_installer_url = "https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh"
 venv_path = ".venv"
 allow_venv_fallback = true
 
 [repository]
-upstream_url = "https://github.com/example/debug-server.git"
-mirror_path = ".artifacts/repos/debug-server.git"
+path = "."
 default_branch = "main"
 fetch_prune = true
 

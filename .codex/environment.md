@@ -13,15 +13,16 @@ $EDITOR config/bootstrap.local.toml
 # 2. Validate prerequisites without mutating the filesystem.
 ./scripts/bootstrap.py --config config/bootstrap.local.toml --check
 
-# 3. Create/update the Conda environment, clone the bare repo mirror, and prepare storage.
+# 3. Install Conda when needed, update the environment, refresh the repo checkout, and prepare storage.
 ./scripts/bootstrap.py --config config/bootstrap.local.toml
 ```
 
 The bootstrap script will:
 
+- Download Miniconda to `.artifacts/miniconda3` when `conda` is missing, accepting the license via the installer `-b` flag to keep hosts non-interactive.
 - Run `conda env create|update -n <name> -f environment.yml` when `use_conda = true`.
 - Create `.venv` via `python -m venv .venv` when `use_conda = false` or Conda is missing and `allow_venv_fallback = true`.
-- Clone or fetch the bare repository mirror at `.artifacts/repos/...` using `git clone --mirror` and `git fetch --prune`.
+- Fetch the already cloned repository checkout via `git fetch --all --prune`.
 - Initialize `.artifacts/data/metadata.db` and run a SQLite smoke test.
 
 ## Verification Commands
@@ -38,4 +39,4 @@ conda activate debug-server && python --version
 pytest tests/bootstrap
 ```
 
-If a host cannot install Conda, set `use_conda = false` in `config/bootstrap.toml` to rely on the built-in virtualenv flow.
+If you prefer to skip the automatic Miniconda install, set `use_conda = false` in `config/bootstrap.toml` to rely on the built-in virtualenv flow.

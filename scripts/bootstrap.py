@@ -8,6 +8,7 @@ import shutil
 import sqlite3
 import subprocess
 import sys
+import urllib.request
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Iterable, List
@@ -25,14 +26,17 @@ class EnvironmentSettings:
     use_conda: bool = True
     conda_command: str = "conda"
     conda_environment_file: str = "environment.yml"
+    conda_install_path: str = ".artifacts/miniconda3"
+    conda_installer_url: str = (
+        "https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh"
+    )
     venv_path: str = ".venv"
     allow_venv_fallback: bool = True
 
 
 @dataclass
 class RepositorySettings:
-    upstream_url: str
-    mirror_path: str
+    path: str
     default_branch: str = "main"
     fetch_prune: bool = True
 
@@ -65,10 +69,9 @@ class BootstrapConfig:
         required = data.get("required_binaries", ["git"])
 
         missing_fields = []
-        if "upstream_url" not in repo:
-            missing_fields.append("repository.upstream_url")
-        if "mirror_path" not in repo:
-            missing_fields.append("repository.mirror_path")
+        repo_path = repo.get("path") or repo.get("mirror_path")
+        if not repo_path:
+            missing_fields.append("repository.path")
         if "data_dir" not in storage:
             missing_fields.append("storage.data_dir")
         if "sqlite_path" not in storage:
@@ -86,12 +89,16 @@ class BootstrapConfig:
             use_conda=env.get("use_conda", True),
             conda_command=env.get("conda_command", "conda"),
             conda_environment_file=env.get("conda_environment_file", "environment.yml"),
+            conda_install_path=env.get("conda_install_path", ".artifacts/miniconda3"),
+            conda_installer_url=env.get(
+                "conda_installer_url",
+                "https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh",
+            ),
             venv_path=env.get("venv_path", ".venv"),
             allow_venv_fallback=env.get("allow_venv_fallback", True),
         )
         repository = RepositorySettings(
-            upstream_url=repo["upstream_url"],
-            mirror_path=repo["mirror_path"],
+            path=repo_path,
             default_branch=repo.get("default_branch", "main"),
             fetch_prune=repo.get("fetch_prune", True),
         )
@@ -144,17 +151,7 @@ class BootstrapManager:
                 )
             self._log(f"✓ Found binary: {binary}")
         if self.config.environment.use_conda:
-            conda_cmd = self.config.environment.conda_command or "conda"
-            if shutil.which(conda_cmd) is None:
-                if self.config.environment.allow_venv_fallback:
-                    self._log(
-                        "⚠️  Conda executable not found – falling back to virtualenv creation",
-                    )
-                    self.config.environment.use_conda = False
-                else:
-                    raise RuntimeError(
-                        "Conda is required but not available. Install Miniconda or disable use_conda in the config.",
-                    )
+            self._ensure_conda_available()
 
     def prepare_environment(self) -> None:
         env = self.config.environment
@@ -165,31 +162,16 @@ class BootstrapManager:
 
     def prepare_repository(self) -> None:
         repo = self.config.repository
-        mirror_path = Path(repo.mirror_path)
-        if mirror_path.exists() and (mirror_path / "HEAD").exists():
-            if self.dry_run:
-                self._log(f"[DRY-RUN] Would fetch updates for {mirror_path}")
-                return
-            self._git_fetch(mirror_path, prune=repo.fetch_prune)
-            return
-
-        if self.dry_run:
-            self._log(
-                f"[DRY-RUN] Would clone bare mirror from {repo.upstream_url} to {mirror_path}"
+        repo_path = Path(repo.path)
+        git_dir = repo_path / ".git"
+        if not git_dir.exists():
+            raise RuntimeError(
+                f"Repository path '{repo_path}' is missing a .git directory. The bootstrap script expects the repo to be cloned already.",
             )
+        if self.dry_run:
+            self._log(f"[DRY-RUN] Would fetch updates for {repo_path}")
             return
-
-        mirror_path.parent.mkdir(parents=True, exist_ok=True)
-        self._run(
-            [
-                "git",
-                "clone",
-                "--mirror",
-                repo.upstream_url,
-                str(mirror_path),
-            ]
-        )
-        self._log(f"✓ Created bare mirror at {mirror_path}")
+        self._git_fetch(repo_path, prune=repo.fetch_prune)
 
     def prepare_storage(self) -> None:
         storage = self.config.storage
@@ -253,12 +235,68 @@ class BootstrapManager:
         self._run([sys.executable, "-m", "venv", str(venv_path)])
         self._log(f"✓ Created Python virtual environment at {venv_path}")
 
-    def _git_fetch(self, mirror_path: Path, prune: bool) -> None:
-        args = ["git", "-C", str(mirror_path), "fetch", "--all"]
+    def _git_fetch(self, repo_path: Path, prune: bool) -> None:
+        args = ["git", "-C", str(repo_path), "fetch", "--all"]
         if prune:
             args.append("--prune")
         self._run(args)
-        self._log(f"✓ Updated bare mirror at {mirror_path}")
+        self._log(f"✓ Updated repository at {repo_path}")
+
+    def _ensure_conda_available(self) -> None:
+        env = self.config.environment
+        conda_cmd = env.conda_command or "conda"
+        resolved = shutil.which(conda_cmd)
+        if resolved:
+            env.conda_command = resolved
+            self._log(f"✓ Found Conda executable: {resolved}")
+            return
+        self._log(
+            "Conda executable not found on PATH – attempting to download and install Miniconda with license acceptance",
+        )
+        installed = self._install_conda(env)
+        if installed:
+            env.conda_command = str(installed)
+            self._log(f"✓ Installed Conda at {installed}")
+            return
+        if self.dry_run:
+            self._log(
+                "[DRY-RUN] Conda installation skipped; run without --check to perform the installation",
+            )
+            return
+        if env.allow_venv_fallback:
+            self._log(
+                "⚠️  Conda installation failed – falling back to Python virtualenv",
+            )
+            env.use_conda = False
+            return
+        raise RuntimeError(
+            "Conda is required but could not be installed automatically. Install it manually or disable use_conda.",
+        )
+
+    def _install_conda(self, env: EnvironmentSettings) -> Path | None:
+        install_dir = Path(env.conda_install_path).expanduser()
+        conda_binary = install_dir / "bin" / "conda"
+        if conda_binary.exists():
+            return conda_binary
+        installer_url = env.conda_installer_url
+        if self.dry_run:
+            self._log(
+                f"[DRY-RUN] Would download Conda installer from {installer_url} and install to {install_dir} with --batch license acceptance",
+            )
+            return None
+        install_dir.parent.mkdir(parents=True, exist_ok=True)
+        installer_path = install_dir.parent / "miniconda-installer.sh"
+        self._log(f"→ Downloading Miniconda from {installer_url}")
+        with urllib.request.urlopen(installer_url) as response, installer_path.open(
+            "wb"
+        ) as handle:
+            shutil.copyfileobj(response, handle)
+        os.chmod(installer_path, 0o755)
+        self._log(
+            f"→ Installing Miniconda to {install_dir} (accepting license via --batch)",
+        )
+        self._run(["bash", str(installer_path), "-b", "-p", str(install_dir), "-f"])
+        return conda_binary
 
     def _run(self, args: Iterable[str], capture_output: bool = False) -> str:
         self._log(f"→ Executing: {' '.join(args)}")
