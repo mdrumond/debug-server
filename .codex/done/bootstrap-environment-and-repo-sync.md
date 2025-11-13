@@ -19,6 +19,10 @@ Produce reproducible scripts and documentation so operators can provision the Co
 - `config/bootstrap.toml` template plus documentation in `README.md` or `.codex/spec.md`.
 - Smoke-test routine referenced by downstream tasks.
 
+## Change Log
+- **2025-11-13** – Ensured the virtualenv fallback installs the pip dependencies declared in `environment.yml`, updated the documentation to describe the behavior, and added a regression test in `tests/bootstrap/test_bootstrap.py`.
+- **2025-11-14** – Removed the virtualenv fallback, added mandatory SHA-256 verification plus Linux-only safeguards for automatic Miniconda installs, validated `.git` directories via `git rev-parse`, and refreshed the docs/tests to document the stricter workflow.
+
 ## Tests & Examples
 - **Test strategy:** Integration smoke tests validating environment + repo bootstrap.
 - **Commands to run tests:**
@@ -29,7 +33,7 @@ Produce reproducible scripts and documentation so operators can provision the Co
 * **Examples (how to run/use the feature):**
   ```bash
   ./scripts/bootstrap.py --config config/bootstrap.toml
-  source .venv/bin/activate && python -m debug_server.config doctor
+  conda activate debug-server && python -m debug_server.config doctor
   ```
 
 ## Linting & Quality
@@ -50,7 +54,7 @@ Produce reproducible scripts and documentation so operators can provision the Co
 
 ## Notes / Risks
 * The scripts must be idempotent to avoid corrupting caches.
-* Need to guard against hosts without Conda by providing a fallback virtualenv path.
+* Automatic Miniconda installs are Linux x86_64 only; other hosts must supply platform-specific installers and checksums.
 * Secrets management should not be hard-coded; rely on environment variables for tokens.
 
 ## Completion Checklist

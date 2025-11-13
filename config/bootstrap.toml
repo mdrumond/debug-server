@@ -1,0 +1,25 @@
+[environment]
+name = "debug-server"
+python_version = "3.11"
+use_conda = true
+conda_command = "conda"
+conda_environment_file = "environment.yml"
+conda_install_path = ".artifacts/miniconda3"
+# WARNING: The conda_installer_url below is hardcoded for Linux x86_64.
+# Update this URL (and the checksum) for macOS or Windows hosts before running the bootstrap script.
+conda_installer_url = "https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh"
+conda_installer_sha256 = ""
+
+[repository]
+path = "."
+default_branch = "main"
+fetch_prune = true
+
+[storage]
+data_dir = ".artifacts/data"
+sqlite_path = ".artifacts/data/metadata.db"
+
+[auth]
+token_environment_variable = "DEBUG_SERVER_TOKEN"
+
+required_binaries = ["git", "python3"]

@@ -1,5 +1,40 @@
 # Environment
 
-Default bootstrap path: create a Conda environment (or Miniconda/Mamba equivalent) that installs the Python server plus any shared worker prerequisites described in `.codex/spec.md`. When Docker is available we may also publish an image, but the service must be installable on hosts where only user-level package managers (Conda, pip, pipx, uv, npm/pnpm/yarn, cargo, etc.) are allowed.
+This project boots via a Conda-first workflow. Operators only need stock Python 3.11+, `git`, and Conda (Miniconda/Mamba). All bootstrap logic lives in `scripts/bootstrap.py`.
 
-Document exact commands here (e.g., `conda env create -f env.yaml && pip install -r requirements.txt`) as soon as implementation work begins.
+## Provisioning Steps
+
+```bash
+# 1. Inspect or customize the configuration (optional).
+cp config/bootstrap.toml config/bootstrap.local.toml
+$EDITOR config/bootstrap.local.toml
+
+# 2. Validate prerequisites without mutating the filesystem.
+./scripts/bootstrap.py --config config/bootstrap.local.toml --check
+
+# 3. Install Conda when needed, update the environment, refresh the repo checkout, and prepare storage.
+./scripts/bootstrap.py --config config/bootstrap.local.toml
+```
+
+The bootstrap script will:
+
+- Download and verify Miniconda to `.artifacts/miniconda3` when `conda` is missing, accepting the license via the installer `-b` flag to keep hosts non-interactive.
+- Run `conda env create|update -n <name> -f environment.yml` when `use_conda = true`.
+- Fetch the already cloned repository checkout via `git fetch --all --prune`.
+- Initialize `.artifacts/data/metadata.db` and run a SQLite smoke test.
+
+## Verification Commands
+
+```bash
+# Ensure the Conda environment exists.
+conda env list | grep debug-server
+
+# Activate and inspect python version.
+conda activate debug-server && python --version
+
+# Run repo+storage smoke tests.
+./scripts/bootstrap.py --check
+pytest tests/bootstrap
+```
+
+Automatic Miniconda installation currently supports Linux x86_64 hosts only. Update `conda_installer_url` and `conda_installer_sha256` in `config/bootstrap.toml` when provisioning macOS or Windows machines.
