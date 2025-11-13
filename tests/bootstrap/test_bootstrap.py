@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import shutil
 import sqlite3
 import subprocess
@@ -103,3 +104,40 @@ def test_installs_conda_when_missing(monkeypatch: pytest.MonkeyPatch, tmp_path: 
     monkeypatch.setattr(manager, "_install_conda", fake_install)
     manager.ensure_required_binaries()
     assert config.environment.conda_command == str(installed_path)
+
+
+def test_virtualenv_installs_pip_packages(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    config = _base_config(tmp_path, use_conda=False)
+    env_file = tmp_path / "environment.yml"
+    env_file.write_text(
+        "\n".join(
+            [
+                "name: test-env",
+                "dependencies:",
+                "  - python=3.11",
+                "  - pip",
+                "  - pip:",
+                "      - tomli-w",
+                "      - debugpy",
+            ]
+        )
+    )
+    config.environment.conda_environment_file = str(env_file)
+    manager = BootstrapManager(config, dry_run=False)
+    commands: list[list[str]] = []
+
+    def fake_run(args: list[str], capture_output: bool = False) -> str:
+        commands.append(args)
+        if args[:3] == [sys.executable, "-m", "venv"]:
+            venv_dir = Path(args[-1])
+            bin_dir = venv_dir / ("Scripts" if os.name == "nt" else "bin")
+            bin_dir.mkdir(parents=True, exist_ok=True)
+            python_name = "python.exe" if os.name == "nt" else "python"
+            (bin_dir / python_name).write_text("#!/usr/bin/env python3")
+        return ""
+
+    monkeypatch.setattr(manager, "_run", fake_run)
+    manager._prepare_virtualenv(Path(config.environment.venv_path))
+    pip_commands = [cmd for cmd in commands if "pip" in cmd]
+    assert pip_commands
+    assert pip_commands[-1][-2:] == ["tomli-w", "debugpy"]

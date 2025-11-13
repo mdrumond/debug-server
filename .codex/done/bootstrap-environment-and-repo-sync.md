@@ -19,6 +19,9 @@ Produce reproducible scripts and documentation so operators can provision the Co
 - `config/bootstrap.toml` template plus documentation in `README.md` or `.codex/spec.md`.
 - Smoke-test routine referenced by downstream tasks.
 
+## Change Log
+- **2025-11-13** – Ensured the virtualenv fallback installs the pip dependencies declared in `environment.yml`, updated the documentation to describe the behavior, and added a regression test in `tests/bootstrap/test_bootstrap.py`.
+
 ## Tests & Examples
 - **Test strategy:** Integration smoke tests validating environment + repo bootstrap.
 - **Commands to run tests:**

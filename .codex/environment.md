@@ -21,7 +21,7 @@ The bootstrap script will:
 
 - Download Miniconda to `.artifacts/miniconda3` when `conda` is missing, accepting the license via the installer `-b` flag to keep hosts non-interactive.
 - Run `conda env create|update -n <name> -f environment.yml` when `use_conda = true`.
-- Create `.venv` via `python -m venv .venv` when `use_conda = false` or Conda is missing and `allow_venv_fallback = true`.
+- Create `.venv` via `python -m venv .venv` and install the pip dependencies declared in `environment.yml` when `use_conda = false` or Conda is missing and `allow_venv_fallback = true`.
 - Fetch the already cloned repository checkout via `git fetch --all --prune`.
 - Initialize `.artifacts/data/metadata.db` and run a SQLite smoke test.
 

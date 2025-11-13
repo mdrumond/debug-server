@@ -225,15 +225,75 @@ class BootstrapManager:
             self._log(f"✓ Updated Conda environment '{env.name}'")
 
     def _prepare_virtualenv(self, venv_path: Path) -> None:
-        if venv_path.exists():
-            self._log(f"✓ Virtual environment already exists at {venv_path}")
-            return
+        env_file = Path(self.config.environment.conda_environment_file)
         if self.dry_run:
             self._log(f"[DRY-RUN] Would create virtual environment at {venv_path}")
+            self._log(
+                f"[DRY-RUN] Would install pip dependencies declared in {env_file}"
+            )
             return
-        venv_path.parent.mkdir(parents=True, exist_ok=True)
-        self._run([sys.executable, "-m", "venv", str(venv_path)])
-        self._log(f"✓ Created Python virtual environment at {venv_path}")
+        if not venv_path.exists():
+            venv_path.parent.mkdir(parents=True, exist_ok=True)
+            self._run([sys.executable, "-m", "venv", str(venv_path)])
+            self._log(f"✓ Created Python virtual environment at {venv_path}")
+        else:
+            self._log(f"✓ Virtual environment already exists at {venv_path}")
+        self._install_virtualenv_dependencies(venv_path, env_file)
+
+    def _install_virtualenv_dependencies(self, venv_path: Path, env_file: Path) -> None:
+        if not env_file.exists():
+            raise FileNotFoundError(
+                "Conda environment file not found; required to install pip dependencies"
+            )
+        pip_dependencies = self._extract_pip_dependencies(env_file)
+        if not pip_dependencies:
+            self._log(
+                f"⚠️  No pip dependencies declared in {env_file}; skipping virtualenv install"
+            )
+            return
+        python_binary = self._virtualenv_python_path(venv_path)
+        self._run(
+            [
+                str(python_binary),
+                "-m",
+                "pip",
+                "install",
+                *pip_dependencies,
+            ]
+        )
+        package_word = "package" if len(pip_dependencies) == 1 else "packages"
+        self._log(
+            f"✓ Installed {len(pip_dependencies)} pip {package_word} into virtualenv from {env_file}"
+        )
+
+    def _virtualenv_python_path(self, venv_path: Path) -> Path:
+        if os.name == "nt":
+            candidate = venv_path / "Scripts" / "python.exe"
+        else:
+            candidate = venv_path / "bin" / "python"
+        if not candidate.exists():
+            raise FileNotFoundError(
+                f"Python interpreter not found inside virtual environment at {candidate}"
+            )
+        return candidate
+
+    def _extract_pip_dependencies(self, env_file: Path) -> list[str]:
+        pip_deps: list[str] = []
+        pip_indent: int | None = None
+        for raw_line in env_file.read_text().splitlines():
+            stripped = raw_line.strip()
+            if not stripped or stripped.startswith("#"):
+                continue
+            indent = len(raw_line) - len(raw_line.lstrip(" "))
+            if pip_indent is not None:
+                if indent <= pip_indent:
+                    pip_indent = None
+                elif stripped.startswith("- "):
+                    pip_deps.append(stripped[2:].strip())
+                    continue
+            if stripped.startswith("- pip:"):
+                pip_indent = indent
+        return pip_deps
 
     def _git_fetch(self, repo_path: Path, prune: bool) -> None:
         args = ["git", "-C", str(repo_path), "fetch", "--all"]
