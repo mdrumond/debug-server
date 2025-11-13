@@ -10,12 +10,13 @@
 1. **Execution Server (Python, Conda-first)**
    - Runs as a long-lived Python process on the host. When Docker is available we can still ship an image, but the primary bootstrap path is a Conda environment created from `.codex/environment.md` instructions.
    - Spawns **worker processes**. Each worker owns an isolated workspace folder plus a temporary Conda environment (or venv) seeded with the dependencies requested for that session. This keeps filesystem and interpreter state separated even without containers.
-   - Exposes authenticated APIs (HTTP + WebSocket) for lifecycle control: repository initialization, session creation, command execution, log streaming, and debugger control (step/run/variables/breakpoints).
+   - Exposes authenticated HTTP + WebSocket APIs implemented with FastAPI for lifecycle control: repository initialization, session creation, command execution, log streaming, and debugger control (step/run/variables/breakpoints).
    - Persists session metadata in a lightweight database (SQLite/Postgres) so the service can recover from restarts without losing in-flight sessions.
 2. **Client Surfaces**
-   - **CLI**: Human/agent-friendly binary wrapping server APIs (start session, stream logs, attach debugger, download artifacts). Responsible for packaging local patches and describing dependency metadata when initializing the server.
+   - The CLI and MCP server ship from the same Python package, simplifying distribution (e.g., `pip install debug-server-client`). Both surfaces wrap the shared FastAPI endpoints so fixes/features land in one codebase.
+   - **CLI**: Human/agent-friendly entry point that starts sessions, streams logs, attaches debuggers, downloads artifacts, packages local patches, and declares dependency metadata when initializing the server.
    - **MCP Server**: Mirrors CLI functionality for LLM agents via the Model Context Protocol (session lifecycle, log streaming, debugger control). Acts as a tool endpoint LLMs can call.
-   - **VS Code Extension**: Reuses MCP/CLI under the hood to offer UI for starting sessions, viewing logs, and attaching VS Code's debugger to remote Python/Node/etc targets forwarded by the execution server.
+   - **VS Code Extension**: Reuses the Python client package under the hood to offer UI for starting sessions, viewing logs, and attaching VS Code's debugger to remote Python/Node/etc targets forwarded by the execution server.
 
 ## Repository Lifecycle
 - The service is **single-repo scoped**. Clients must call an `initialize_repository` command that provides:
@@ -44,7 +45,8 @@
    - Clients can query status, fetch artifacts (coverage, junit, core dumps), and close sessions explicitly. Idle sessions auto-expire, releasing worktree resources.
 
 ## Remote Debugging & Tooling
-- The execution server hosts debugger adapters (e.g., debugpy, delve) inside the same process namespace as the worker (Conda env by default) and forwards ports over authenticated WebSocket tunnels.
+- The execution server currently supports `debugpy`, `gdb`, and `lldb` for Python and native targets. Additional debuggers can be layered later, but these three are the MVP.
+- Debugger adapters run inside the same worker process (Conda env by default) and forward ports over authenticated WebSocket tunnels.
 - CLI/MCP provide commands like `session debug open`, `session debug step`, `session debug variables`.
 - VS Code extension can attach using standard Debug Adapter Protocol via the tunnel, enabling breakpoints and variable inspection inside the remote worker environment.
 
@@ -80,6 +82,6 @@
 - Bare repo mirror periodically `git fetch --prune` to stay current; errors reported to clients.
 
 ## Open Questions / Next Steps
-1. Define exact API transport (gRPC vs HTTP/WS) and authentication strategy.
-2. Determine packaging for CLI + MCP (single binary? python package?).
-3. Document supported debuggers/toolchains per language and how they are pre-installed inside the Conda environment (or optional Docker image) described in [`.codex/environment.md`](.codex/environment.md).
+1. API transport is finalized as HTTP + WebSocket via FastAPI, so the remaining work is to document concrete route/WS schemas and payload contracts.
+2. Client distribution will use a shared Python package that exposes both the CLI and MCP implementations; follow-up work should define the package layout, entry points, and publishing pipeline.
+3. Initial debugger support focuses on `debugpy`, `gdb`, and `lldb`. Future planning should evaluate adding other adapters (e.g., delve, lldb-mi) once the core flow ships reliably.
