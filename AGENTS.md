@@ -8,10 +8,10 @@
 
 **Environment & specification requirements:**
 
-* Maintain [`.codex/environment.md`](../.codex/environment.md) with the exact commands required to prepare the Codex execution environment for this repository.
+* Maintain [`.codex/environment.md`](.codex/environment.md) with the exact commands required to prepare the Codex execution environment for this repository.
   * Update the file whenever dependencies, bootstrap scripts, or platform prerequisites change so future agents can reproduce your setup quickly.
   * If no setup is required beyond stock tooling, explicitly state that in the file and include any verification commands that confirm the environment is ready.
-* Maintain [`.codex/SPEC.md`](../.codex/SPEC.md) with the project’s high-level structure, goals, tech stack, architecture, and primary entry points.
+* Maintain [`.codex/SPEC.md`](.codex/SPEC.md) with the project’s high-level structure, goals, tech stack, architecture, and primary entry points.
   * Update the spec as the repository evolves so new contributors can quickly understand the context before working on tasks.
 
 **Task files live in:**
