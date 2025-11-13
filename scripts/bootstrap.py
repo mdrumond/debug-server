@@ -3,15 +3,19 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
+import json
 import os
+import platform
 import shutil
 import sqlite3
 import subprocess
 import sys
 import urllib.request
+from urllib.error import URLError
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Iterable, List
+from typing import Iterable
 
 try:  # Python 3.11+
     import tomllib
@@ -30,8 +34,7 @@ class EnvironmentSettings:
     conda_installer_url: str = (
         "https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh"
     )
-    venv_path: str = ".venv"
-    allow_venv_fallback: bool = True
+    conda_installer_sha256: str | None = None
 
 
 @dataclass
@@ -58,7 +61,7 @@ class BootstrapConfig:
     repository: RepositorySettings
     storage: StorageSettings
     auth: AuthSettings = field(default_factory=AuthSettings)
-    required_binaries: List[str] = field(default_factory=lambda: ["git"])
+    required_binaries: list[str] = field(default_factory=lambda: ["git"])
 
     @classmethod
     def from_mapping(cls, data: dict) -> "BootstrapConfig":
@@ -94,8 +97,7 @@ class BootstrapConfig:
                 "conda_installer_url",
                 "https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh",
             ),
-            venv_path=env.get("venv_path", ".venv"),
-            allow_venv_fallback=env.get("allow_venv_fallback", True),
+            conda_installer_sha256=(env.get("conda_installer_sha256") or None),
         )
         repository = RepositorySettings(
             path=repo_path,
@@ -151,14 +153,17 @@ class BootstrapManager:
                 )
             self._log(f"✓ Found binary: {binary}")
         if self.config.environment.use_conda:
-            self._ensure_conda_available()
+            resolved = self._ensure_conda_available(self.config.environment)
+            self.config.environment.conda_command = resolved
 
     def prepare_environment(self) -> None:
         env = self.config.environment
         if env.use_conda:
             self._prepare_conda_environment(env)
         else:
-            self._prepare_virtualenv(Path(env.venv_path))
+            self._log(
+                "Conda usage disabled in config; skipping environment provisioning"
+            )
 
     def prepare_repository(self) -> None:
         repo = self.config.repository
@@ -168,6 +173,7 @@ class BootstrapManager:
             raise RuntimeError(
                 f"Repository path '{repo_path}' is missing a .git directory. The bootstrap script expects the repo to be cloned already.",
             )
+        self._validate_git_repository(repo_path)
         if self.dry_run:
             self._log(f"[DRY-RUN] Would fetch updates for {repo_path}")
             return
@@ -180,12 +186,9 @@ class BootstrapManager:
         if not self.dry_run:
             data_dir.mkdir(parents=True, exist_ok=True)
             sqlite_path.parent.mkdir(parents=True, exist_ok=True)
-            if not sqlite_path.exists():
-                with sqlite3.connect(sqlite_path) as connection:
-                    connection.execute("pragma journal_mode=WAL;")
-                self._log(f"✓ Initialized SQLite metadata file at {sqlite_path}")
-            else:
-                self._log(f"✓ SQLite metadata file already present at {sqlite_path}")
+            with sqlite3.connect(sqlite_path) as connection:
+                connection.execute("pragma journal_mode=WAL;")
+            self._log(f"✓ Ensured SQLite metadata file at {sqlite_path}")
         else:
             self._log(f"[DRY-RUN] Would ensure storage directories exist at {data_dir}")
             self._log(f"[DRY-RUN] Would ensure SQLite database exists at {sqlite_path}")
@@ -216,84 +219,34 @@ class BootstrapManager:
             raise FileNotFoundError(
                 f"Conda environment file '{env.conda_environment_file}' not found. Update config or add the file.",
             )
-        list_output = self._run([conda_cmd, "env", "list"], capture_output=True)
-        if env.name not in list_output:
-            self._run([conda_cmd, "env", "create", "-n", env.name, "-f", str(env_file)])
-            self._log(f"✓ Created Conda environment '{env.name}'")
-        else:
-            self._run([conda_cmd, "env", "update", "-n", env.name, "-f", str(env_file)])
-            self._log(f"✓ Updated Conda environment '{env.name}'")
-
-    def _prepare_virtualenv(self, venv_path: Path) -> None:
-        env_file = Path(self.config.environment.conda_environment_file)
-        if self.dry_run:
-            self._log(f"[DRY-RUN] Would create virtual environment at {venv_path}")
-            self._log(
-                f"[DRY-RUN] Would install pip dependencies declared in {env_file}"
-            )
-            return
-        if not venv_path.exists():
-            venv_path.parent.mkdir(parents=True, exist_ok=True)
-            self._run([sys.executable, "-m", "venv", str(venv_path)])
-            self._log(f"✓ Created Python virtual environment at {venv_path}")
-        else:
-            self._log(f"✓ Virtual environment already exists at {venv_path}")
-        self._install_virtualenv_dependencies(venv_path, env_file)
-
-    def _install_virtualenv_dependencies(self, venv_path: Path, env_file: Path) -> None:
-        if not env_file.exists():
-            raise FileNotFoundError(
-                "Conda environment file not found; required to install pip dependencies"
-            )
-        pip_dependencies = self._extract_pip_dependencies(env_file)
-        if not pip_dependencies:
-            self._log(
-                f"⚠️  No pip dependencies declared in {env_file}; skipping virtualenv install"
-            )
-            return
-        python_binary = self._virtualenv_python_path(venv_path)
-        self._run(
-            [
-                str(python_binary),
-                "-m",
-                "pip",
-                "install",
-                *pip_dependencies,
-            ]
+        list_output = self._run(
+            [conda_cmd, "env", "list", "--json"], capture_output=True
         )
-        package_word = "package" if len(pip_dependencies) == 1 else "packages"
-        self._log(
-            f"✓ Installed {len(pip_dependencies)} pip {package_word} into virtualenv from {env_file}"
-        )
+        env_exists = self._conda_env_exists(list_output, env.name)
+        command = [
+            conda_cmd,
+            "env",
+            "update" if env_exists else "create",
+            "-n",
+            env.name,
+            "-f",
+            str(env_file),
+        ]
+        self._run(command)
+        action = "Updated" if env_exists else "Created"
+        self._log(f"✓ {action} Conda environment '{env.name}'")
 
-    def _virtualenv_python_path(self, venv_path: Path) -> Path:
-        if os.name == "nt":
-            candidate = venv_path / "Scripts" / "python.exe"
-        else:
-            candidate = venv_path / "bin" / "python"
-        if not candidate.exists():
-            raise FileNotFoundError(
-                f"Python interpreter not found inside virtual environment at {candidate}"
-            )
-        return candidate
-
-    def _extract_pip_dependencies(self, env_file: Path) -> list[str]:
-        pip_deps: list[str] = []
-        pip_indent: int | None = None
-        for raw_line in env_file.read_text().splitlines():
-            stripped = raw_line.strip()
-            if not stripped or stripped.startswith("#"):
-                continue
-            indent = len(raw_line) - len(raw_line.lstrip(" "))
-            if pip_indent is not None:
-                if indent <= pip_indent:
-                    pip_indent = None
-                elif stripped.startswith("- "):
-                    pip_deps.append(stripped[2:].strip())
-                    continue
-            if stripped.startswith("- pip:"):
-                pip_indent = indent
-        return pip_deps
+    @staticmethod
+    def _conda_env_exists(raw_list_output: str, target_name: str) -> bool:
+        try:
+            listing = json.loads(raw_list_output)
+        except json.JSONDecodeError:
+            return target_name in raw_list_output
+        env_paths = listing.get("envs", [])
+        for env_path in env_paths:
+            if Path(env_path).name == target_name:
+                return True
+        return False
 
     def _git_fetch(self, repo_path: Path, prune: bool) -> None:
         args = ["git", "-C", str(repo_path), "fetch", "--all"]
@@ -302,33 +255,35 @@ class BootstrapManager:
         self._run(args)
         self._log(f"✓ Updated repository at {repo_path}")
 
-    def _ensure_conda_available(self) -> None:
-        env = self.config.environment
+    def _validate_git_repository(self, repo_path: Path) -> None:
+        try:
+            self._run(
+                ["git", "-C", str(repo_path), "rev-parse", "--git-dir"],
+                capture_output=True,
+            )
+        except subprocess.CalledProcessError as exc:  # pragma: no cover - defensive
+            raise RuntimeError(
+                f"Repository path '{repo_path}' does not contain a valid git repository"
+            ) from exc
+
+    def _ensure_conda_available(self, env: EnvironmentSettings) -> str:
         conda_cmd = env.conda_command or "conda"
         resolved = shutil.which(conda_cmd)
         if resolved:
-            env.conda_command = resolved
             self._log(f"✓ Found Conda executable: {resolved}")
-            return
+            return resolved
         self._log(
             "Conda executable not found on PATH – attempting to download and install Miniconda with license acceptance",
         )
         installed = self._install_conda(env)
         if installed:
-            env.conda_command = str(installed)
             self._log(f"✓ Installed Conda at {installed}")
-            return
+            return str(installed)
         if self.dry_run:
             self._log(
                 "[DRY-RUN] Conda installation skipped; run without --check to perform the installation",
             )
-            return
-        if env.allow_venv_fallback:
-            self._log(
-                "⚠️  Conda installation failed – falling back to Python virtualenv",
-            )
-            env.use_conda = False
-            return
+            return conda_cmd
         raise RuntimeError(
             "Conda is required but could not be installed automatically. Install it manually or disable use_conda.",
         )
@@ -339,6 +294,7 @@ class BootstrapManager:
         if conda_binary.exists():
             return conda_binary
         installer_url = env.conda_installer_url
+        self._ensure_linux_platform()
         if self.dry_run:
             self._log(
                 f"[DRY-RUN] Would download Conda installer from {installer_url} and install to {install_dir} with --batch license acceptance",
@@ -351,12 +307,51 @@ class BootstrapManager:
             "wb"
         ) as handle:
             shutil.copyfileobj(response, handle)
+        expected_sha = env.conda_installer_sha256 or self._download_remote_sha256(
+            installer_url
+        )
+        if not expected_sha:
+            raise RuntimeError(
+                "Unable to determine the Miniconda installer checksum. Provide 'conda_installer_sha256' in config/bootstrap.toml or make the .sha256 file accessible."
+            )
+        self._verify_sha256(installer_path, expected_sha)
         os.chmod(installer_path, 0o755)
         self._log(
             f"→ Installing Miniconda to {install_dir} (accepting license via --batch)",
         )
         self._run(["bash", str(installer_path), "-b", "-p", str(install_dir), "-f"])
+        installer_path.unlink(missing_ok=True)
         return conda_binary
+
+    @staticmethod
+    def _ensure_linux_platform() -> None:
+        system = platform.system().lower()
+        machine = platform.machine().lower()
+        if system == "linux" and machine in {"x86_64", "amd64"}:
+            return
+        raise RuntimeError(
+            "Automatic Conda installation is only supported on Linux x86_64 hosts. Update config/bootstrap.toml with a platform-appropriate installer URL before rerunning."
+        )
+
+    def _download_remote_sha256(self, installer_url: str) -> str | None:
+        sha_url = f"{installer_url}.sha256"
+        try:
+            with urllib.request.urlopen(sha_url) as response:
+                digest_line = response.read().decode("utf-8").strip()
+        except (OSError, URLError):
+            return None
+        return digest_line.split()[0] if digest_line else None
+
+    def _verify_sha256(self, installer_path: Path, expected_sha: str) -> None:
+        digest = hashlib.sha256()
+        with installer_path.open("rb") as handle:
+            for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+                digest.update(chunk)
+        calculated = digest.hexdigest()
+        if calculated != expected_sha:
+            raise RuntimeError(
+                f"Checksum mismatch for downloaded installer at {installer_path}. Expected {expected_sha} but calculated {calculated}."
+            )
 
     def _run(self, args: Iterable[str], capture_output: bool = False) -> str:
         self._log(f"→ Executing: {' '.join(args)}")

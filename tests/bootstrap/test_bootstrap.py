@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-import os
 import shutil
 import sqlite3
 import subprocess
 import sys
+import json
 from pathlib import Path
 
 import pytest
@@ -21,7 +21,6 @@ def _base_config(tmp_path: Path, **overrides: object) -> BootstrapConfig:
         "environment": {
             "name": "test-env",
             "use_conda": overrides.get("use_conda", False),
-            "venv_path": str(tmp_path / ".venv"),
         },
         "repository": {
             "path": str(overrides.get("repo_path", tmp_path / "repo")),
@@ -61,6 +60,16 @@ def test_prepare_repository_clones_local_mirror(tmp_path: Path) -> None:
     manager = BootstrapManager(config, dry_run=False)
     manager.prepare_repository()
     assert (repo_path / ".git").exists()
+
+
+def test_prepare_repository_errors_on_invalid_git_dir(tmp_path: Path) -> None:
+    repo_path = tmp_path / "repo"
+    git_dir = repo_path / ".git"
+    git_dir.mkdir(parents=True)
+    config = _base_config(tmp_path, repo_path=repo_path)
+    manager = BootstrapManager(config, dry_run=False)
+    with pytest.raises(RuntimeError):
+        manager.prepare_repository()
 
 
 def test_run_smoke_tests_warns_when_env_missing(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
@@ -106,38 +115,9 @@ def test_installs_conda_when_missing(monkeypatch: pytest.MonkeyPatch, tmp_path: 
     assert config.environment.conda_command == str(installed_path)
 
 
-def test_virtualenv_installs_pip_packages(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    config = _base_config(tmp_path, use_conda=False)
-    env_file = tmp_path / "environment.yml"
-    env_file.write_text(
-        "\n".join(
-            [
-                "name: test-env",
-                "dependencies:",
-                "  - python=3.11",
-                "  - pip",
-                "  - pip:",
-                "      - tomli-w",
-                "      - debugpy",
-            ]
-        )
-    )
-    config.environment.conda_environment_file = str(env_file)
-    manager = BootstrapManager(config, dry_run=False)
-    commands: list[list[str]] = []
-
-    def fake_run(args: list[str], capture_output: bool = False) -> str:
-        commands.append(args)
-        if args[:3] == [sys.executable, "-m", "venv"]:
-            venv_dir = Path(args[-1])
-            bin_dir = venv_dir / ("Scripts" if os.name == "nt" else "bin")
-            bin_dir.mkdir(parents=True, exist_ok=True)
-            python_name = "python.exe" if os.name == "nt" else "python"
-            (bin_dir / python_name).write_text("#!/usr/bin/env python3")
-        return ""
-
-    monkeypatch.setattr(manager, "_run", fake_run)
-    manager._prepare_virtualenv(Path(config.environment.venv_path))
-    pip_commands = [cmd for cmd in commands if "pip" in cmd]
-    assert pip_commands
-    assert pip_commands[-1][-2:] == ["tomli-w", "debugpy"]
+def test_conda_env_exists_uses_json_listing(tmp_path: Path) -> None:
+    config = _base_config(tmp_path)
+    manager = BootstrapManager(config, dry_run=True)
+    listing = json.dumps({"envs": ["/tmp/miniconda/envs/test-env", "/tmp/miniconda/envs/other"]})
+    assert manager._conda_env_exists(listing, "test-env")
+    assert not manager._conda_env_exists(listing, "missing")

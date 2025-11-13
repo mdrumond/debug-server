@@ -1,7 +1,6 @@
 # Environment
 
-This project boots via a Conda-first workflow with a virtualenv fallback. Operators only need stock Python 3.11+, `git`, and Con
-da (Miniconda/Mamba). All bootstrap logic lives in `scripts/bootstrap.py`.
+This project boots via a Conda-first workflow. Operators only need stock Python 3.11+, `git`, and Conda (Miniconda/Mamba). All bootstrap logic lives in `scripts/bootstrap.py`.
 
 ## Provisioning Steps
 
@@ -19,9 +18,8 @@ $EDITOR config/bootstrap.local.toml
 
 The bootstrap script will:
 
-- Download Miniconda to `.artifacts/miniconda3` when `conda` is missing, accepting the license via the installer `-b` flag to keep hosts non-interactive.
+- Download and verify Miniconda to `.artifacts/miniconda3` when `conda` is missing, accepting the license via the installer `-b` flag to keep hosts non-interactive.
 - Run `conda env create|update -n <name> -f environment.yml` when `use_conda = true`.
-- Create `.venv` via `python -m venv .venv` and install the pip dependencies declared in `environment.yml` when `use_conda = false` or Conda is missing and `allow_venv_fallback = true`.
 - Fetch the already cloned repository checkout via `git fetch --all --prune`.
 - Initialize `.artifacts/data/metadata.db` and run a SQLite smoke test.
 
@@ -39,4 +37,4 @@ conda activate debug-server && python --version
 pytest tests/bootstrap
 ```
 
-If you prefer to skip the automatic Miniconda install, set `use_conda = false` in `config/bootstrap.toml` to rely on the built-in virtualenv flow.
+Automatic Miniconda installation currently supports Linux x86_64 hosts only. Update `conda_installer_url` and `conda_installer_sha256` in `config/bootstrap.toml` when provisioning macOS or Windows machines.
