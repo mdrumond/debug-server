@@ -1,0 +1,23 @@
+[environment]
+name = "debug-server"
+python_version = "3.11"
+use_conda = true
+conda_command = "conda"
+conda_environment_file = "environment.yml"
+venv_path = ".venv"
+allow_venv_fallback = true
+
+[repository]
+upstream_url = "https://github.com/example/debug-server.git"
+mirror_path = ".artifacts/repos/debug-server.git"
+default_branch = "main"
+fetch_prune = true
+
+[storage]
+data_dir = ".artifacts/data"
+sqlite_path = ".artifacts/data/metadata.db"
+
+[auth]
+token_environment_variable = "DEBUG_SERVER_TOKEN"
+
+required_binaries = ["git", "python3"]
