@@ -68,17 +68,17 @@ class DummyClient:
         self.streamed_session = (session_id, follow)
         yield LogEntry(message="line", stream="stdout", timestamp=datetime.now(UTC))
 
-    def list_commands(self, session_id: str):
+    def list_commands(self, session_id: str) -> list[str]:
         self.command_session = session_id
         return ["pytest", "ruff check"]
 
-    def send_debug_action(self, session_id: str, action):
+    def send_debug_action(self, session_id: str, action) -> DebugActionResponse:
         self.debug_action = (session_id, action.action)
         return DebugActionResponse(status="ok", detail="continued")
 
 
 @pytest.fixture()
-def server_and_client() -> tuple[DebugServerMCPServer, DummyClient]:
+def server_and_client() -> Iterator[tuple[DebugServerMCPServer, DummyClient]]:
     client = DummyClient()
     config = ClientConfig(base_url="https://example.com", token="abc", verify_tls=True)
 

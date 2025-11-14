@@ -74,9 +74,15 @@ spec to mention the new module. Tests in `tests/mcp/test_server.py` cover tool d
 streaming behavior, config merging, and the manifest CLI. Packaging metadata now ships
 the new namespaces.
 
+Follow-up hardening ensures the CLI dispatcher always returns explicitly after
+manifest/tool/stdio flows (while guaranteeing `server.close()` runs) and adds
+missing type annotations to the MCP test harness so the fixture accurately
+describes its generator semantics.
+
 ### Test & Lint Log
 
 - `pytest tests/mcp`
+- `pytest tests/mcp/test_server.py`
 - `ruff check client tests`
 - `black --check client tests`
 - `mypy client`

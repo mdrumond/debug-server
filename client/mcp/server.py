@@ -431,9 +431,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     try:
         if parsed.manifest:
             print(json.dumps(server.manifest(), indent=2))
-            return 0
-
-        if parsed.tool:
+        elif parsed.tool:
             arguments = json.loads(parsed.args or "{}")
             response = server.call_tool(parsed.tool, arguments)
             if isinstance(response, ToolStream):
@@ -441,13 +439,11 @@ def main(argv: Sequence[str] | None = None) -> int:
                     print(json.dumps(chunk))
             else:
                 print(json.dumps(response.content, indent=2))
-            return 0
-
-        if parsed.stdio:
+        elif parsed.stdio:
             run_stdio_event_loop(server)
-            return 0
-
-        parser.error("Select --manifest, --tool, or --stdio to interact with the MCP server.")
+        else:
+            parser.error("Select --manifest, --tool, or --stdio to interact with the MCP server.")
+        return 0
     finally:
         server.close()
 
