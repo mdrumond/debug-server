@@ -6,7 +6,7 @@ import hashlib
 import secrets
 from collections.abc import Iterable
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from hmac import compare_digest
 
 from sqlalchemy import and_, or_
@@ -36,6 +36,16 @@ class MetadataError(RuntimeError):
 class LeaseResult:
     worktree: Worktree
     lease_token: str
+
+
+def _ensure_aware(value: datetime | None) -> datetime | None:
+    """Return the datetime with UTC tzinfo when missing."""
+
+    if value is None:
+        return None
+    if value.tzinfo is None:
+        return value.replace(tzinfo=UTC)
+    return value
 
 
 class MetadataStore:
@@ -70,7 +80,7 @@ class MetadataStore:
                 repository.remote_url = remote_url
                 repository.default_branch = default_branch
                 repository.description = description
-                repository.updated_at = datetime.now(datetime.UTC)
+                repository.updated_at = datetime.now(UTC)
             session.commit()
             session.refresh(repository)
             return repository
@@ -106,7 +116,7 @@ class MetadataStore:
         lease_ttl: timedelta,
     ) -> LeaseResult:
         with self._session() as session:
-            now = datetime.now(datetime.UTC)
+            now = datetime.now(UTC)
             statement = (
                 select(Worktree)
                 .where(
@@ -151,7 +161,7 @@ class MetadataStore:
             worktree.leased_at = None
             worktree.lease_expires_at = None
             worktree.version += 1
-            worktree.updated_at = datetime.now(datetime.UTC)
+            worktree.updated_at = datetime.now(UTC)
             session.add(worktree)
             session.commit()
             session.refresh(worktree)
@@ -202,7 +212,7 @@ class MetadataStore:
                 db_session.started_at = started_at
             if completed_at is not None:
                 db_session.completed_at = completed_at
-            db_session.updated_at = datetime.now(datetime.UTC)
+            db_session.updated_at = datetime.now(UTC)
             session.add(db_session)
             session.commit()
             session.refresh(db_session)
@@ -242,7 +252,7 @@ class MetadataStore:
             db_command = session.get(Command, command_id)
             if db_command is None:
                 raise MetadataError("Unknown command")
-            now = datetime.now(datetime.UTC)
+            now = datetime.now(UTC)
             if status == CommandStatus.RUNNING:
                 db_command.started_at = now
             if status in {CommandStatus.SUCCEEDED, CommandStatus.FAILED, CommandStatus.CANCELLED}:
@@ -317,8 +327,9 @@ class MetadataStore:
                 return None
             if not compare_digest(record.token_hash, token_hash):
                 return None
-            now = datetime.now(datetime.UTC)
-            expired = record.expires_at is not None and record.expires_at <= now
+            now = datetime.now(UTC)
+            expires_at = _ensure_aware(record.expires_at)
+            expired = expires_at is not None and expires_at <= now
             revoked = record.revoked_at is not None
             if expired or revoked:
                 return None
