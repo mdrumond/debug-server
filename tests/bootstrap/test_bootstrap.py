@@ -150,6 +150,7 @@ def test_sets_conda_ssl_verify_from_requests_bundle(
     manager._ensure_conda_ssl_verify()
 
     assert os.environ["CONDA_SSL_VERIFY"] == str(cert_path)
+    assert os.environ["REQUESTS_CA_BUNDLE"] == str(cert_path)
 
 
 def test_does_not_override_existing_conda_ssl_verify(
@@ -187,3 +188,50 @@ def test_combines_proxy_bundle_with_system_store(
 
     assert os.environ["CONDA_SSL_VERIFY"] == str(combined_path)
     assert combined_path.read_text() == "CUSTOM\nSYSTEM\n"
+    assert os.environ["REQUESTS_CA_BUNDLE"] == str(combined_path)
+
+
+def test_populates_missing_certificate_environment_variables(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    config = _base_config(tmp_path, use_conda=True)
+    manager = BootstrapManager(config, dry_run=True)
+    proxy_bundle = tmp_path / "proxy.crt"
+    proxy_bundle.write_text("CUSTOM")
+
+    monkeypatch.delenv("CONDA_SSL_VERIFY", raising=False)
+    monkeypatch.delenv("REQUESTS_CA_BUNDLE", raising=False)
+    monkeypatch.delenv("SSL_CERT_FILE", raising=False)
+    monkeypatch.delenv("PIP_CERT", raising=False)
+    monkeypatch.setenv("CODEX_PROXY_CERT", str(proxy_bundle))
+    monkeypatch.setattr(manager, "_detect_system_certificate_bundle", lambda: None)
+
+    manager._ensure_conda_ssl_verify()
+
+    expected = str(proxy_bundle)
+    assert os.environ["CONDA_SSL_VERIFY"] == expected
+    assert os.environ["REQUESTS_CA_BUNDLE"] == expected
+    assert os.environ["SSL_CERT_FILE"] == expected
+
+
+def test_preserves_non_source_certificate_environment_variables(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    config = _base_config(tmp_path, use_conda=True)
+    manager = BootstrapManager(config, dry_run=True)
+    proxy_bundle = tmp_path / "proxy.crt"
+    proxy_bundle.write_text("CUSTOM")
+    locked_cert = tmp_path / "locked.crt"
+    locked_cert.write_text("LOCKED")
+
+    monkeypatch.delenv("CONDA_SSL_VERIFY", raising=False)
+    monkeypatch.setenv("REQUESTS_CA_BUNDLE", str(locked_cert))
+    monkeypatch.setenv("SSL_CERT_FILE", str(locked_cert))
+    monkeypatch.setenv("PIP_CERT", str(proxy_bundle))
+    monkeypatch.setattr(manager, "_detect_system_certificate_bundle", lambda: None)
+
+    manager._ensure_conda_ssl_verify()
+
+    assert os.environ["PIP_CERT"] == str(proxy_bundle)
+    assert os.environ["REQUESTS_CA_BUNDLE"] == str(locked_cert)
+    assert os.environ["SSL_CERT_FILE"] == str(locked_cert)

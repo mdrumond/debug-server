@@ -9,8 +9,8 @@
 Ensure the bootstrap script can successfully provision the Conda environment when hosts expose proxy certificates via `REQUESTS_CA_BUNDLE`. The original flow forwarded that single path to `CONDA_SSL_VERIFY`, stripping Conda of the default CA store and causing SSL errors when the proxy certificate was not part of the upstream chain. We needed to combine the host-provided CA with the system defaults so Conda trusts both.
 
 ## Deliverables
-- Updated `scripts/bootstrap.py` with helpers that merge proxy-provided CA bundles with the system trust store, persist the combined file under `.artifacts/certs/conda-ca-bundle.pem`, and log the new provenance message.
-- Extended tests in `tests/bootstrap/test_bootstrap.py` that validate both the proxy-only and proxy+system scenarios.
+- Updated `scripts/bootstrap.py` with helpers that merge proxy-provided CA bundles with the system trust store, persist the combined file under `.artifacts/certs/conda-ca-bundle.pem`, propagate the merged path back to `CONDA_SSL_VERIFY` *and* the originating certificate environment variable, and log the new provenance message so `conda` and other TLS-aware tooling all reuse the same trust roots.
+- Extended tests in `tests/bootstrap/test_bootstrap.py` that validate both the proxy-only and proxy+system scenarios along with the new environment-variable propagation semantics.
 - Documentation updates in [`.codex/environment.md`](../environment.md) highlighting the new behavior and bundle location.
 - Recorded lint/test executions with notes on pre-existing failures elsewhere in the repo.
 
@@ -18,9 +18,10 @@ Ensure the bootstrap script can successfully provision the Conda environment whe
 - **Test strategy:** Unit tests for the bootstrap helper that runs outside of Conda.
 - **Commands to run tests:**
   ```bash
+  pytest tests/bootstrap/test_bootstrap.py
   pytest
   ```
-  *Result:* Fails during collection because `sqlmodel.Field` rejects `nullable` when paired with `sa_column` in `debug_server/db/models.py`. This pre-existing issue is unrelated to the bootstrapper changes.
+  *Result:* The targeted bootstrap suite now passes. The repository-wide `pytest` run still fails during collection because `sqlmodel.Field` rejects `nullable` when paired with `sa_column` in `debug_server/db/models.py`; this pre-existing issue is unrelated to the bootstrapper changes.
 
 * **Examples (how to run/use the feature):**
 
@@ -36,7 +37,7 @@ Ensure the bootstrap script can successfully provision the Conda environment whe
   ruff check scripts/bootstrap.py tests/bootstrap/test_bootstrap.py
   black --check .
   ```
-  *Result:* `ruff` continues to flag historical violations (line length, security heuristics) scattered throughout `scripts/bootstrap.py`. `black --check .` reports formatting drift in unrelated modules such as `debug_server/mcp/__init__.py`, though the touched files were formatted via `black scripts/bootstrap.py tests/bootstrap/test_bootstrap.py`.
+  *Result:* `ruff` continues to flag historical violations (line length, security heuristics) scattered throughout `scripts/bootstrap.py` and `tests/bootstrap/test_bootstrap.py`. `black --check .` reports formatting drift in unrelated modules such as `debug_server/mcp/__init__.py`, though the touched files were formatted via `black scripts/bootstrap.py tests/bootstrap/test_bootstrap.py`.
 * **Static analysis / type checks:**
 
   ```bash

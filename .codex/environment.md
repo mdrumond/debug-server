@@ -23,7 +23,9 @@ The bootstrap script will:
   Alembic, Typer, pytest, Ruff, Black, and mypy are available for local development. When the host exports `REQUESTS_CA_BUNDLE`,
   `SSL_CERT_FILE`, `PIP_CERT`, or `CODEX_PROXY_CERT`, the bootstrapper now mirrors the first existing path to `CONDA_SSL_VERIFY`
   and, when available, automatically concatenates it with the system trust store under `.artifacts/certs/conda-ca-bundle.pem` so
-  Conda downloads succeed behind corporate TLS proxies without discarding the default CA bundle.
+  Conda downloads succeed behind corporate TLS proxies without discarding the default CA bundle. The merged path is also written
+  back to the originating certificate environment variable (and to any of `REQUESTS_CA_BUNDLE`, `SSL_CERT_FILE`, or `PIP_CERT`
+  that were previously unset) so Conda, pip, and requests clients share the same trust roots.
 - Fetch the already cloned repository checkout via `git fetch --all --prune`.
 - Initialize `.artifacts/data/metadata.db` and run a SQLite smoke test.
 

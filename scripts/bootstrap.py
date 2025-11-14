@@ -370,7 +370,9 @@ class BootstrapManager:
             return
         path, source = candidate
         bundle_path, bundle_source = self._prepare_conda_certificate_bundle(path, source)
+        bundle_path = str(Path(bundle_path).resolve())
         os.environ["CONDA_SSL_VERIFY"] = bundle_path
+        self._propagate_certificate_bundle(bundle_path, source)
         self._log(
             f"✓ Exported CONDA_SSL_VERIFY from {bundle_source} so Conda trusts the configured certificate bundle"
         )
@@ -418,6 +420,17 @@ class BootstrapManager:
     @staticmethod
     def _conda_certificate_bundle_path() -> Path:
         return Path(".artifacts") / "certs" / "conda-ca-bundle.pem"
+
+    def _propagate_certificate_bundle(self, bundle_path: str, source_env_var: str) -> None:
+        """Ensure other TLS-aware tools reuse the merged certificate bundle."""
+
+        os.environ[source_env_var] = bundle_path
+        for env_var in ("REQUESTS_CA_BUNDLE", "SSL_CERT_FILE", "PIP_CERT"):
+            if env_var == source_env_var:
+                continue
+            if os.environ.get(env_var):
+                continue
+            os.environ[env_var] = bundle_path
 
     @staticmethod
     def _detect_system_certificate_bundle() -> str | None:
