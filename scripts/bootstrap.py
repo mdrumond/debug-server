@@ -393,7 +393,7 @@ class BootstrapManager:
             if not value:
                 continue
             candidate = Path(value).expanduser()
-            if candidate.exists():
+            if candidate.is_file():
                 return str(candidate), env_var
         return None
 
