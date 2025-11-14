@@ -5,6 +5,7 @@ import sqlite3
 import subprocess
 import sys
 import json
+import os
 from pathlib import Path
 
 import pytest
@@ -121,3 +122,33 @@ def test_conda_env_exists_uses_json_listing(tmp_path: Path) -> None:
     listing = json.dumps({"envs": ["/tmp/miniconda/envs/test-env", "/tmp/miniconda/envs/other"]})
     assert manager._conda_env_exists(listing, "test-env")
     assert not manager._conda_env_exists(listing, "missing")
+
+
+def test_sets_conda_ssl_verify_from_requests_bundle(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    config = _base_config(tmp_path, use_conda=True)
+    manager = BootstrapManager(config, dry_run=True)
+    cert_path = tmp_path / "proxy-ca.crt"
+    cert_path.write_text("dummy")
+    monkeypatch.delenv("CONDA_SSL_VERIFY", raising=False)
+    monkeypatch.setenv("REQUESTS_CA_BUNDLE", str(cert_path))
+
+    manager._ensure_conda_ssl_verify()
+
+    assert os.environ["CONDA_SSL_VERIFY"] == str(cert_path)
+
+
+def test_does_not_override_existing_conda_ssl_verify(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    config = _base_config(tmp_path, use_conda=True)
+    manager = BootstrapManager(config, dry_run=True)
+    cert_path = tmp_path / "proxy-ca.crt"
+    cert_path.write_text("dummy")
+    monkeypatch.setenv("CONDA_SSL_VERIFY", "false")
+    monkeypatch.setenv("REQUESTS_CA_BUNDLE", str(cert_path))
+
+    manager._ensure_conda_ssl_verify()
+
+    assert os.environ["CONDA_SSL_VERIFY"] == "false"

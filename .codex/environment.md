@@ -20,7 +20,9 @@ The bootstrap script will:
 
 - Download and verify Miniconda to `.artifacts/miniconda3` when `conda` is missing, accepting the license via the installer `-b` flag to keep hosts non-interactive.
 - Run `conda env create|update -n <name> -f environment.yml` when `use_conda = true`, then `pip install -e .[dev]` so SQLModel,
-  Alembic, Typer, pytest, Ruff, Black, and mypy are available for local development.
+  Alembic, Typer, pytest, Ruff, Black, and mypy are available for local development. When the host exports `REQUESTS_CA_BUNDLE`,
+  `SSL_CERT_FILE`, `PIP_CERT`, or `CODEX_PROXY_CERT`, the bootstrapper automatically mirrors the first existing path to `CONDA_SSL_VERIFY`
+  so Conda downloads succeed behind corporate TLS proxies.
 - Fetch the already cloned repository checkout via `git fetch --all --prune`.
 - Initialize `.artifacts/data/metadata.db` and run a SQLite smoke test.
 

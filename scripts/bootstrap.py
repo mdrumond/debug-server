@@ -219,6 +219,7 @@ class BootstrapManager:
             raise FileNotFoundError(
                 f"Conda environment file '{env.conda_environment_file}' not found. Update config or add the file.",
             )
+        self._ensure_conda_ssl_verify()
         list_output = self._run(
             [conda_cmd, "env", "list", "--json"], capture_output=True
         )
@@ -365,6 +366,36 @@ class BootstrapManager:
             assert result.stdout is not None
             return result.stdout
         return ""
+
+    def _ensure_conda_ssl_verify(self) -> None:
+        """Ensure Conda honors any custom certificate bundles on the host."""
+
+        if os.environ.get("CONDA_SSL_VERIFY"):
+            return
+        candidate = self._resolve_ssl_certificate_bundle()
+        if not candidate:
+            return
+        path, source = candidate
+        os.environ["CONDA_SSL_VERIFY"] = path
+        self._log(
+            f"✓ Exported CONDA_SSL_VERIFY from {source} so Conda trusts the configured certificate bundle"
+        )
+
+    @staticmethod
+    def _resolve_ssl_certificate_bundle() -> tuple[str, str] | None:
+        for env_var in (
+            "REQUESTS_CA_BUNDLE",
+            "SSL_CERT_FILE",
+            "PIP_CERT",
+            "CODEX_PROXY_CERT",
+        ):
+            value = os.environ.get(env_var)
+            if not value:
+                continue
+            candidate = Path(value).expanduser()
+            if candidate.exists():
+                return str(candidate), env_var
+        return None
 
     @staticmethod
     def _log(message: str) -> None:
