@@ -119,6 +119,7 @@ class MetadataStore:
                     ),
                 )
                 .order_by(Worktree.updated_at)
+                .with_for_update(skip_locked=True)
             )
             worktree = session.exec(statement).first()
             if worktree is None:
@@ -311,11 +312,17 @@ class MetadataStore:
         with self._session() as session:
             statement = select(AuthToken).where(AuthToken.token_hash == token_hash)
             record = session.exec(statement).one_or_none()
-            if record is not None:
-                record.last_used_at = datetime.utcnow()
-                session.add(record)
-                session.commit()
-                session.refresh(record)
+            if record is None:
+                return None
+            now = datetime.utcnow()
+            expired = record.expires_at is not None and record.expires_at <= now
+            revoked = record.revoked_at is not None
+            if expired or revoked:
+                return None
+            record.last_used_at = now
+            session.add(record)
+            session.commit()
+            session.refresh(record)
             return record
 
 

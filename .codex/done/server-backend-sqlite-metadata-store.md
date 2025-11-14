@@ -71,6 +71,8 @@ Design and implement the SQLite + SQLModel persistence layer that tracks reposit
   and the new `docs/architecture.md` page.
 - Created unit/integration tests under `tests/db/` and `tests/integration/` that cover
   repositories, worktrees, sessions, commands, artifacts, and auth tokens.
+- Follow-up: Hardened worktree reservations with row-level locking and enforced auth token
+  expiry/revocation checks plus new regression tests for those behaviors.
 
 ### Tests Executed
 
@@ -79,3 +81,5 @@ Design and implement the SQLite + SQLModel persistence layer that tracks reposit
 - `mypy debug_server/db` *(fails: missing `sqlalchemy/sqlmodel` because the environment cannot install new pip dependencies)*
 - `pytest tests/db` *(fails to import `debug_server` for the same dependency reason)*
 - `pytest tests/integration/test_db_transactions.py` *(fails to import `debug_server` for the same dependency reason)*
+- `PYTHONPATH=. pytest tests/integration/test_db_transactions.py` *(fails: `sqlmodel.Field`
+  rejects combining `nullable` with a custom `sa_column` definition)*
