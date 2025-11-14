@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import enum
-from datetime import UTC, datetime
+from datetime import datetime
 from typing import Any
 from uuid import uuid4
 
@@ -11,6 +11,13 @@ from sqlalchemy import JSON, Column, String
 from sqlalchemy import Enum as SAEnum
 from sqlalchemy.orm import relationship
 from sqlmodel import Field, Relationship, SQLModel
+
+try:  # pragma: no cover - Python >=3.11 ships datetime.UTC
+    from datetime import UTC
+except ImportError:  # pragma: no cover - fallback for older runtimes
+    from datetime import timezone as _timezone
+
+    UTC = _timezone.utc  # noqa: UP017
 
 
 def utc_now() -> datetime:
@@ -30,6 +37,18 @@ class VersionedMixin:
     """Adds an integer version column for optimistic locking."""
 
     version: int = Field(default=1, nullable=False)
+
+
+class MetadataAttributeMixin:
+    """Expose the JSON metadata column via a safe attribute name."""
+
+    def __getattribute__(self, name: str) -> Any:  # noqa: D401 - behavior described above
+        if name == "metadata":
+            try:
+                return super().__getattribute__("metadata_json")
+            except AttributeError:
+                pass
+        return super().__getattribute__(name)
 
 
 class Repository(SQLModel, table=True):
@@ -110,7 +129,7 @@ class SessionStatus(str, enum.Enum):
     CANCELLED = "cancelled"
 
 
-class Session(SQLModel, TimestampMixin, table=True):
+class Session(MetadataAttributeMixin, SQLModel, TimestampMixin, table=True):
     """Represents an execution session tied to a worktree."""
 
     __tablename__ = "sessions"
@@ -205,7 +224,7 @@ class ArtifactKind(str, enum.Enum):
     CUSTOM = "custom"
 
 
-class Artifact(SQLModel, TimestampMixin, table=True):
+class Artifact(MetadataAttributeMixin, SQLModel, TimestampMixin, table=True):
     """Artifact metadata entries."""
 
     __tablename__ = "artifacts"

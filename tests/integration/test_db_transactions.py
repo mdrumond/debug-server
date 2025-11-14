@@ -5,6 +5,13 @@ from __future__ import annotations
 from datetime import datetime, timedelta
 from pathlib import Path
 
+try:  # pragma: no cover - Python 3.11+ exposes datetime.UTC
+    from datetime import UTC
+except ImportError:  # pragma: no cover - fallback for older runtimes
+    from datetime import timezone as _timezone
+
+    UTC = _timezone.utc  # noqa: UP017
+
 from debug_server.db.models import AuthToken
 from debug_server.db.testing import create_test_store
 
@@ -28,7 +35,7 @@ def test_token_creation_and_authentication() -> None:
 
 def test_authentication_rejects_expired_token() -> None:
     store = create_test_store()
-    expired_at = datetime.now(datetime.UTC) - timedelta(minutes=5)
+    expired_at = datetime.now(UTC) - timedelta(minutes=5)
     record, token_value = store.create_token(name="ops", expires_at=expired_at)
     assert record.id is not None
     assert store.authenticate(token_value) is None
@@ -40,7 +47,7 @@ def test_authentication_rejects_revoked_token() -> None:
     assert record.id is not None
     with store._session() as session:  # noqa: SLF001 - test helper
         token = session.get(AuthToken, record.id)
-        token.revoked_at = datetime.now(datetime.UTC)
+        token.revoked_at = datetime.now(UTC)
         session.add(token)
         session.commit()
     assert store.authenticate(token_value) is None

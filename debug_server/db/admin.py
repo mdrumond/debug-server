@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta
 
 import typer
 
@@ -10,6 +10,13 @@ from .service import MetadataStore
 from .session import create_engine_from_url
 
 app = typer.Typer(help="Admin helpers for the metadata store.")
+
+try:  # pragma: no cover - datetime.UTC ships with Python 3.11+
+    from datetime import UTC
+except ImportError:  # pragma: no cover - fallback for older runtimes
+    from datetime import timezone as _timezone
+
+    UTC = _timezone.utc  # noqa: UP017
 
 
 def _store(db_url: str | None) -> MetadataStore:

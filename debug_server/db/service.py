@@ -6,11 +6,18 @@ import hashlib
 import secrets
 from collections.abc import Iterable
 from dataclasses import dataclass
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta
 from hmac import compare_digest
 
 from sqlalchemy import and_, or_
 from sqlmodel import Session, select
+
+try:  # pragma: no cover - datetime.UTC shipped in Python 3.11+
+    from datetime import UTC
+except ImportError:  # pragma: no cover - fallback for older runtimes
+    from datetime import timezone as _timezone
+
+    UTC = _timezone.utc  # noqa: UP017
 
 from .models import (
     Artifact,
