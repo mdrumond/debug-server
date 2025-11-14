@@ -407,14 +407,21 @@ class BootstrapManager:
                 return str(proxy_path), source
         except OSError:
             pass
-        if not system_path.is_file():
+        system_bytes: bytes | None
+        try:
+            system_bytes = self._read_system_certificate_bundle(system_path)
+        except OSError:
+            return path, source
+        if system_bytes is None:
             return path, source
 
         combined_path = self._conda_certificate_bundle_path()
         combined_path.parent.mkdir(parents=True, exist_ok=True)
-        custom_bytes = proxy_path.read_bytes().rstrip() + b"\n"
-        system_bytes = system_path.read_bytes().strip() + b"\n"
-        combined_path.write_bytes(custom_bytes + system_bytes)
+        try:
+            custom_bytes = proxy_path.read_bytes().rstrip() + b"\n"
+            combined_path.write_bytes(custom_bytes + system_bytes)
+        except OSError:
+            return path, source
         return str(combined_path), f"{source} + system trust store"
 
     @staticmethod
@@ -435,20 +442,39 @@ class BootstrapManager:
     @staticmethod
     def _detect_system_certificate_bundle() -> str | None:
         default_paths = ssl.get_default_verify_paths()
-        candidates = [
-            default_paths.openssl_cafile,
-            default_paths.openssl_capath,
-        ]
-        for candidate in candidates:
-            if candidate and Path(candidate).is_file():
-                return candidate
+        cafile = default_paths.openssl_cafile
+        capath = default_paths.openssl_capath
+        if cafile and Path(cafile).is_file():
+            return cafile
+        if capath and Path(capath).is_dir():
+            return capath
         try:
             import certifi  # type: ignore
 
-        except Exception:  # pragma: no cover - optional dependency, best-effort fallback
+        except (ImportError, AttributeError):  # pragma: no cover - optional dependency, best-effort fallback
             return None
         certifi_path = Path(certifi.where())
         return str(certifi_path) if certifi_path.is_file() else None
+
+    @staticmethod
+    def _read_system_certificate_bundle(system_path: Path) -> bytes | None:
+        if system_path.is_file():
+            return system_path.read_bytes().strip() + b"\n"
+        if not system_path.is_dir():
+            return None
+        chunks: list[bytes] = []
+        for entry in sorted(system_path.iterdir()):
+            if not entry.is_file():
+                continue
+            try:
+                data = entry.read_bytes().strip()
+            except OSError:
+                continue
+            if data:
+                chunks.append(data + b"\n")
+        if not chunks:
+            return None
+        return b"".join(chunks)
 
     @staticmethod
     def _log(message: str) -> None:

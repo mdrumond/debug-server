@@ -4,6 +4,7 @@ import json
 import os
 import shutil
 import sqlite3
+import ssl
 import subprocess
 import sys
 from pathlib import Path
@@ -191,6 +192,30 @@ def test_combines_proxy_bundle_with_system_store(
     assert os.environ["REQUESTS_CA_BUNDLE"] == str(combined_path)
 
 
+def test_combines_proxy_bundle_with_system_directory(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    config = _base_config(tmp_path, use_conda=True)
+    manager = BootstrapManager(config, dry_run=True)
+    proxy_bundle = tmp_path / "proxy.crt"
+    proxy_bundle.write_text("CUSTOM")
+    system_dir = tmp_path / "system-certs"
+    system_dir.mkdir()
+    (system_dir / "001.pem").write_text("FIRST")
+    (system_dir / "002.pem").write_text("SECOND")
+    combined_path = tmp_path / "combined.pem"
+
+    monkeypatch.delenv("CONDA_SSL_VERIFY", raising=False)
+    monkeypatch.setenv("REQUESTS_CA_BUNDLE", str(proxy_bundle))
+    monkeypatch.setattr(manager, "_conda_certificate_bundle_path", lambda: combined_path)
+    monkeypatch.setattr(manager, "_detect_system_certificate_bundle", lambda: str(system_dir))
+
+    manager._ensure_conda_ssl_verify()
+
+    assert os.environ["CONDA_SSL_VERIFY"] == str(combined_path)
+    assert combined_path.read_text() == "CUSTOM\nFIRST\nSECOND\n"
+
+
 def test_populates_missing_certificate_environment_variables(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
@@ -235,3 +260,18 @@ def test_preserves_non_source_certificate_environment_variables(
     assert os.environ["PIP_CERT"] == str(proxy_bundle)
     assert os.environ["REQUESTS_CA_BUNDLE"] == str(locked_cert)
     assert os.environ["SSL_CERT_FILE"] == str(locked_cert)
+
+
+def test_detects_system_certificate_directory(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    cert_dir = tmp_path / "certs"
+    cert_dir.mkdir()
+
+    class _Paths:
+        openssl_cafile = None
+        openssl_capath = str(cert_dir)
+
+    monkeypatch.setattr(ssl, "get_default_verify_paths", lambda: _Paths)
+
+    assert BootstrapManager._detect_system_certificate_bundle() == str(cert_dir)
