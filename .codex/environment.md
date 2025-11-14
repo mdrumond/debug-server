@@ -19,7 +19,8 @@ $EDITOR config/bootstrap.local.toml
 The bootstrap script will:
 
 - Download and verify Miniconda to `.artifacts/miniconda3` when `conda` is missing, accepting the license via the installer `-b` flag to keep hosts non-interactive.
-- Run `conda env create|update -n <name> -f environment.yml` when `use_conda = true`.
+- Run `conda env create|update -n <name> -f environment.yml` when `use_conda = true`, then `pip install -e .[dev]` so SQLModel,
+  Alembic, Typer, pytest, Ruff, Black, and mypy are available for local development.
 - Fetch the already cloned repository checkout via `git fetch --all --prune`.
 - Initialize `.artifacts/data/metadata.db` and run a SQLite smoke test.
 

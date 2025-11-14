@@ -41,6 +41,25 @@ pytest tests/bootstrap
 
 These commands double as CI checks and should be executed before sending a pull request.
 
+## Metadata Store & Tooling
+
+The execution service now ships a SQLite metadata store defined with SQLModel and Alembic
+migrations under `debug_server/db/`. Use the following commands to work with the database:
+
+```bash
+# Create the default database and apply all migrations.
+python -m debug_server.db.migrate upgrade head
+
+# Inspect the migration history.
+python -m debug_server.db.migrate history
+
+# Generate a personal access token for API access.
+python -m debug_server.db.admin create-token ops --scopes admin,cli
+```
+
+All commands honor `DEBUG_SERVER_DB_URL`; when unset they default to the bootstrap-managed
+SQLite file `.artifacts/data/metadata.db`. See [`docs/architecture.md`](docs/architecture.md)
+for a breakdown of the schema and persistence workflow.
 ## Python CLI
 
 The repository now ships a Click-based CLI bundled with the shared `debug-server-client` package. Install it in editable mode and configure your token once per machine:
