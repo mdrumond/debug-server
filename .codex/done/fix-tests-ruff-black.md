@@ -2,6 +2,7 @@
 
 ## Summary
 - Updated `debug_server/db/models.py` to import the stdlib `UTC` constant and ensure the `utc_now()` helper always returns timezone-aware datetimes compatible with SQLModel defaults.
+- Confirmed the existing `sqlmodel.Relationship(sa_relationship=...)` usage in `debug_server/db/models.py` remains valid with the project's SQLModel version.
 - Added UTC-aware timestamp handling in `debug_server/db/service.py`, including a helper to normalize stored datetimes before comparisons so authentication expiry checks no longer raise type errors.
 - Kept the admin CLI (`debug_server/db/admin.py`) aligned with the UTC handling changes so manually created tokens also share the same semantics.
 
