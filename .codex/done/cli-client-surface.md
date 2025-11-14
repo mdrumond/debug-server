@@ -64,6 +64,11 @@ Implemented the Click-based CLI (`client/cli/main.py`) backed by the reusable HT
 - `black client`
 - `mypy client`
 
+### Follow-up Updates
+
+- Ensured the root CLI `--insecure/--verify` flag can re-enable TLS verification for single invocations even when the saved config disables verification, keeping per-command security overrides accurate.
+- Added regression test `test_verify_flag_overrides_insecure_config` in `tests/cli/test_cli.py` to capture this behavior.
+
 ## Completion Checklist
 * [x] Code implemented
 * [x] Tests written/updated and passing

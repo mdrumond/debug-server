@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import click
+from click.core import ParameterSource
 
 from client.config import ClientConfig, load_client_config, save_client_config
 from client.sdk import (
@@ -68,10 +69,20 @@ def app(ctx: click.Context, base_url: str | None, token: str | None, insecure: b
     """Interact with the Debug Server via HTTP APIs."""
 
     config = load_client_config()
+    verify_override: bool | None = None
+    if insecure:
+        verify_override = False
+    else:
+        source = ctx.get_parameter_source("insecure")
+        if source in {
+            ParameterSource.COMMANDLINE,
+            ParameterSource.ENVIRONMENT,
+        }:
+            verify_override = True
     overrides = config.merged(
         base_url=base_url,
         token=token,
-        verify_tls=False if insecure else None,
+        verify_tls=verify_override,
     )
     ctx.obj = CLIState(settings=overrides)
 

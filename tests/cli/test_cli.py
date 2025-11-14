@@ -78,6 +78,35 @@ def _runner(monkeypatch, dummy: DummyClient):
     return CliRunner()
 
 
+def test_verify_flag_overrides_insecure_config(monkeypatch, tmp_path):
+    dummy = DummyClient()
+    captured: dict[str, object] = {}
+
+    def _client(**kwargs):
+        captured.update(kwargs)
+        return dummy
+
+    monkeypatch.setattr(cli_main, "DebugServerClient", _client)
+    runner = CliRunner()
+    env = {"DEBUG_SERVER_HOME": str(tmp_path)}
+    (tmp_path / "config.toml").write_text(
+        """
+base_url = "http://example.com"
+token = "stored"
+verify_tls = false
+""".strip()
+    )
+
+    result = runner.invoke(
+        cli_main.app,
+        ["--verify", "--token", "override", "server", "init", "https://example.com/repo.git"],
+        env=env,
+    )
+
+    assert result.exit_code == 0, result.stdout
+    assert captured["verify_tls"] is True
+
+
 def test_server_init_invokes_client(monkeypatch, tmp_path):
     dummy = DummyClient()
     runner = _runner(monkeypatch, dummy)
