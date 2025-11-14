@@ -25,7 +25,7 @@ $EDITOR config/bootstrap.local.toml
 The script will:
 
 1. Ensure the required binaries (`git`, `conda`, etc.) are present.
-2. Download, verify, and install Miniconda when `conda` is not already on `PATH`, then create or update the Conda environment declared in `environment.yml`.
+2. Download, verify, and install Miniconda when `conda` is not already on `PATH`, then create or update the Conda environment declared in `environment.yml`. When corporate proxies inject custom certificate bundles the script automatically exports `CONDA_SSL_VERIFY` using the existing `REQUESTS_CA_BUNDLE`/`SSL_CERT_FILE`/`PIP_CERT`/`CODEX_PROXY_CERT` values so Conda can trust the intercepted HTTPS traffic.
 3. Confirm the repository in `repository.path` already exists (Codex checks out the repo for you) and run `git fetch --all --prune` to refresh it.
 4. Prepare storage folders and run a SQLite read/write smoke test.
 5. Warn when the expected bearer token environment variable is missing.
