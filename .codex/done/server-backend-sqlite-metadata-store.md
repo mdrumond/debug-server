@@ -73,6 +73,8 @@ Design and implement the SQLite + SQLModel persistence layer that tracks reposit
   repositories, worktrees, sessions, commands, artifacts, and auth tokens.
 - Follow-up: Hardened worktree reservations with row-level locking and enforced auth token
   expiry/revocation checks plus new regression tests for those behaviors.
+- Added a missing `MetadataStore` return type annotation for the `metadata_store`
+  fixture in `tests/db/conftest.py` to align with the rest of the test suite.
 
 ### Tests Executed
 
@@ -83,3 +85,4 @@ Design and implement the SQLite + SQLModel persistence layer that tracks reposit
 - `pytest tests/integration/test_db_transactions.py` *(fails to import `debug_server` for the same dependency reason)*
 - `PYTHONPATH=. pytest tests/integration/test_db_transactions.py` *(fails: `sqlmodel.Field`
   rejects combining `nullable` with a custom `sa_column` definition)*
+- `ruff check tests/db/conftest.py`
