@@ -428,26 +428,28 @@ def main(argv: Sequence[str] | None = None) -> int:
     config = load_mcp_config(parsed.config)
     server = DebugServerMCPServer(config=config)
 
-    if parsed.manifest:
-        print(json.dumps(server.manifest(), indent=2))
-        return 0
+    try:
+        if parsed.manifest:
+            print(json.dumps(server.manifest(), indent=2))
+            return 0
 
-    if parsed.tool:
-        arguments = json.loads(parsed.args or "{}")
-        response = server.call_tool(parsed.tool, arguments)
-        if isinstance(response, ToolStream):
-            for chunk in response:
-                print(json.dumps(chunk))
-        else:
-            print(json.dumps(response.content, indent=2))
-        return 0
+        if parsed.tool:
+            arguments = json.loads(parsed.args or "{}")
+            response = server.call_tool(parsed.tool, arguments)
+            if isinstance(response, ToolStream):
+                for chunk in response:
+                    print(json.dumps(chunk))
+            else:
+                print(json.dumps(response.content, indent=2))
+            return 0
 
-    if parsed.stdio:
-        run_stdio_event_loop(server)
-        return 0
+        if parsed.stdio:
+            run_stdio_event_loop(server)
+            return 0
 
-    parser.error("Select --manifest, --tool, or --stdio to interact with the MCP server.")
-    return 2
+        parser.error("Select --manifest, --tool, or --stdio to interact with the MCP server.")
+    finally:
+        server.close()
 
 
 if __name__ == "__main__":  # pragma: no cover

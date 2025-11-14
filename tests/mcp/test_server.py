@@ -110,6 +110,29 @@ def test_repository_init_invokes_sdk(server_and_client: tuple[DebugServerMCPServ
     assert result.content["repository_id"] == "repo-1"
 
 
+def test_session_create_invokes_sdk(server_and_client: tuple[DebugServerMCPServer, DummyClient]):
+    server, client = server_and_client
+    result = server.call_tool(
+        "debug-server.session.create",
+        {
+            "commit": "abc123",
+            "commands": ["pytest"],
+            "patch": "diff --git a b",
+            "metadata": {"ticket": "42"},
+        },
+    )
+    assert client.session_request is not None
+    assert client.session_request.commit == "abc123"
+    assert result.content["session_id"] == "sess-1"
+
+
+def test_session_info_invokes_sdk(server_and_client: tuple[DebugServerMCPServer, DummyClient]):
+    server, client = server_and_client
+    result = server.call_tool("debug-server.session.info", {"session_id": "sess-2"})
+    assert client.requested_session == "sess-2"
+    assert result.content["session_id"] == "sess-2"
+
+
 def test_session_logs_stream(server_and_client: tuple[DebugServerMCPServer, DummyClient]):
     server, client = server_and_client
     response = server.call_tool("debug-server.session.logs", {"session_id": "sess-3"})
