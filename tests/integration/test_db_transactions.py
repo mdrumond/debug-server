@@ -28,7 +28,7 @@ def test_token_creation_and_authentication() -> None:
 
 def test_authentication_rejects_expired_token() -> None:
     store = create_test_store()
-    expired_at = datetime.utcnow() - timedelta(minutes=5)
+    expired_at = datetime.now(datetime.UTC) - timedelta(minutes=5)
     record, token_value = store.create_token(name="ops", expires_at=expired_at)
     assert record.id is not None
     assert store.authenticate(token_value) is None
@@ -40,7 +40,7 @@ def test_authentication_rejects_revoked_token() -> None:
     assert record.id is not None
     with store._session() as session:  # noqa: SLF001 - test helper
         token = session.get(AuthToken, record.id)
-        token.revoked_at = datetime.utcnow()
+        token.revoked_at = datetime.now(datetime.UTC)
         session.add(token)
         session.commit()
     assert store.authenticate(token_value) is None

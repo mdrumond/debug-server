@@ -12,11 +12,17 @@ from sqlalchemy import Enum as SAEnum
 from sqlmodel import Field, Relationship, SQLModel
 
 
+def utc_now() -> datetime:
+    """Return the current UTC timestamp as a timezone-aware datetime."""
+
+    return datetime.now(datetime.UTC)
+
+
 class TimestampMixin(SQLModel):
     """Common timestamp fields."""
 
-    created_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
-    updated_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
+    created_at: datetime = Field(default_factory=utc_now, nullable=False)
+    updated_at: datetime = Field(default_factory=utc_now, nullable=False)
 
 
 class VersionedMixin(SQLModel):
@@ -40,8 +46,8 @@ class Repository(SQLModel, table=True):
         sa_column=Column(JSON, nullable=False),
         description="Arbitrary repository-level metadata.",
     )
-    created_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
-    updated_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
+    created_at: datetime = Field(default_factory=utc_now, nullable=False)
+    updated_at: datetime = Field(default_factory=utc_now, nullable=False)
 
     worktrees: list[Worktree] = Relationship(back_populates="repository")
     sessions: list[Session] = Relationship(back_populates="repository")

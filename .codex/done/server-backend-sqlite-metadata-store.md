@@ -75,6 +75,9 @@ Design and implement the SQLite + SQLModel persistence layer that tracks reposit
   expiry/revocation checks plus new regression tests for those behaviors.
 - Added a missing `MetadataStore` return type annotation for the `metadata_store`
   fixture in `tests/db/conftest.py` to align with the rest of the test suite.
+- Replaced deprecated `datetime.utcnow()` usage with timezone-aware
+  `datetime.now(datetime.UTC)` across the metadata store service, SQLModel
+  definitions, admin CLI, and authentication integration tests.
 
 ### Tests Executed
 
@@ -86,3 +89,5 @@ Design and implement the SQLite + SQLModel persistence layer that tracks reposit
 - `PYTHONPATH=. pytest tests/integration/test_db_transactions.py` *(fails: `sqlmodel.Field`
   rejects combining `nullable` with a custom `sa_column` definition)*
 - `ruff check tests/db/conftest.py`
+- `ruff check debug_server/db tests/integration`
+- `black --check debug_server tests/integration`

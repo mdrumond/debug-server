@@ -69,7 +69,7 @@ class MetadataStore:
                 repository.remote_url = remote_url
                 repository.default_branch = default_branch
                 repository.description = description
-                repository.updated_at = datetime.utcnow()
+                repository.updated_at = datetime.now(datetime.UTC)
             session.commit()
             session.refresh(repository)
             return repository
@@ -105,7 +105,7 @@ class MetadataStore:
         lease_ttl: timedelta,
     ) -> LeaseResult:
         with self._session() as session:
-            now = datetime.utcnow()
+            now = datetime.now(datetime.UTC)
             statement = (
                 select(Worktree)
                 .where(
@@ -150,7 +150,7 @@ class MetadataStore:
             worktree.leased_at = None
             worktree.lease_expires_at = None
             worktree.version += 1
-            worktree.updated_at = datetime.utcnow()
+            worktree.updated_at = datetime.now(datetime.UTC)
             session.add(worktree)
             session.commit()
             session.refresh(worktree)
@@ -201,7 +201,7 @@ class MetadataStore:
                 db_session.started_at = started_at
             if completed_at is not None:
                 db_session.completed_at = completed_at
-            db_session.updated_at = datetime.utcnow()
+            db_session.updated_at = datetime.now(datetime.UTC)
             session.add(db_session)
             session.commit()
             session.refresh(db_session)
@@ -241,7 +241,7 @@ class MetadataStore:
             db_command = session.get(Command, command_id)
             if db_command is None:
                 raise MetadataError("Unknown command")
-            now = datetime.utcnow()
+            now = datetime.now(datetime.UTC)
             if status == CommandStatus.RUNNING:
                 db_command.started_at = now
             if status in {CommandStatus.SUCCEEDED, CommandStatus.FAILED, CommandStatus.CANCELLED}:
@@ -314,7 +314,7 @@ class MetadataStore:
             record = session.exec(statement).one_or_none()
             if record is None:
                 return None
-            now = datetime.utcnow()
+            now = datetime.now(datetime.UTC)
             expired = record.expires_at is not None and record.expires_at <= now
             revoked = record.revoked_at is not None
             if expired or revoked:

@@ -29,7 +29,7 @@ def create_token(
     store = _store(db_url)
     expires_at = None
     if expires_in_days > 0:
-        expires_at = datetime.utcnow() + timedelta(days=expires_in_days)
+        expires_at = datetime.now(datetime.UTC) + timedelta(days=expires_in_days)
     record, raw_token = store.create_token(
         name=name,
         scopes=scopes.split(","),
