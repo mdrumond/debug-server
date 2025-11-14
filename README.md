@@ -60,3 +60,13 @@ python -m debug_server.db.admin create-token ops --scopes admin,cli
 All commands honor `DEBUG_SERVER_DB_URL`; when unset they default to the bootstrap-managed
 SQLite file `.artifacts/data/metadata.db`. See [`docs/architecture.md`](docs/architecture.md)
 for a breakdown of the schema and persistence workflow.
+## Python CLI
+
+The repository now ships a Click-based CLI bundled with the shared `debug-server-client` package. Install it in editable mode and configure your token once per machine:
+
+```bash
+pip install -e .
+debug-server configure --base-url https://debug.example.com --token sk-xxx
+```
+
+Run `debug-server --help` or see [`docs/cli.md`](docs/cli.md) for command walkthroughs covering repository initialization, session creation, log streaming, debugger control, and artifact downloads.
