@@ -225,6 +225,14 @@ class WorktreePool:
             path = Path(worktree.path)
             if path.exists():
                 shutil.rmtree(path)
+            worktree_id = worktree.id
+            if worktree_id is None:  # pragma: no cover - defensive guard
+                raise WorktreePoolError("Worktree missing primary key")
+            self.metadata_store.update_worktree_metadata(
+                worktree_id,
+                commit_sha=None,
+                environment_hash=None,
+            )
             reclaimed.append(path)
         return reclaimed
 

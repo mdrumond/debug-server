@@ -55,6 +55,9 @@ def _ensure_aware(value: datetime | None) -> datetime | None:
     return value
 
 
+_UNSET = object()
+
+
 class MetadataStore:
     """High-level helper for interacting with the metadata database."""
 
@@ -132,16 +135,16 @@ class MetadataStore:
         self,
         worktree_id: int,
         *,
-        commit_sha: str | None = None,
-        environment_hash: str | None = None,
+        commit_sha: str | None | object = _UNSET,
+        environment_hash: str | None | object = _UNSET,
     ) -> Worktree:
         with self._session() as session:
             worktree = session.get(Worktree, worktree_id)
             if worktree is None:
                 raise MetadataError("Unknown worktree")
-            if commit_sha is not None:
+            if commit_sha is not _UNSET:
                 worktree.commit_sha = commit_sha
-            if environment_hash is not None:
+            if environment_hash is not _UNSET:
                 worktree.environment_hash = environment_hash
             worktree.updated_at = datetime.now(UTC)
             session.add(worktree)

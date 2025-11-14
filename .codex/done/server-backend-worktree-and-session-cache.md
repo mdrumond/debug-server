@@ -61,6 +61,8 @@ Provide the repository lifecycle services that manage the bare mirror, git workt
 - Created unit tests under `tests/worktrees/` plus an integration test for the session cache and wired a shared
   `metadata_store` fixture at `tests/conftest.py`.
 - Verified style/quality via `ruff`, `black --check`, `mypy`, and executed `pytest` across the suite.
+- Follow-up: cleared reclaimed worktree metadata so dependency sync runs after directories are removed and added
+  `tests/worktrees/test_pool.py::test_reclaimed_worktree_requires_dependency_sync` to guard the behavior.
 
 ## Completion Checklist
 * [x] Code implemented

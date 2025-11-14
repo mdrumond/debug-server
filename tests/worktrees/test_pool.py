@@ -80,6 +80,37 @@ def test_reclaim_removes_idle_worktrees(
     assert not path.exists()
 
 
+def test_reclaimed_worktree_requires_dependency_sync(
+    metadata_store: MetadataStore, sample_repo: Path, tmp_path: Path
+) -> None:
+    pool = _pool(metadata_store, sample_repo, tmp_path)
+    commit_hash = commit_file(sample_repo, "deps.txt", "base")
+    lease = pool.acquire_worktree(
+        commit_sha=commit_hash,
+        owner="worker",
+        environment_hash="env-a",
+    )
+    lease.release()
+
+    with metadata_store._session() as session:  # type: ignore[attr-defined]
+        worktree = session.get(Worktree, lease.worktree.id)
+        assert worktree is not None
+        worktree.updated_at = worktree.updated_at - timedelta(days=2)
+        session.add(worktree)
+        session.commit()
+
+    reclaimed = pool.reclaim_stale_worktrees(max_idle_age=timedelta(hours=1))
+    assert reclaimed
+
+    lease2 = pool.acquire_worktree(
+        commit_sha=commit_hash,
+        owner="worker",
+        environment_hash="env-a",
+    )
+    assert lease2.needs_dependency_sync is True
+    lease2.release()
+
+
 def test_describe_returns_serializable_data(
     metadata_store: MetadataStore, sample_repo: Path, tmp_path: Path
 ) -> None:
