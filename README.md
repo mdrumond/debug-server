@@ -40,3 +40,14 @@ pytest tests/bootstrap
 ```
 
 These commands double as CI checks and should be executed before sending a pull request.
+
+## Python CLI
+
+The repository now ships a Click-based CLI bundled with the shared `debug-server-client` package. Install it in editable mode and configure your token once per machine:
+
+```bash
+pip install -e .
+debug-server configure --base-url https://debug.example.com --token sk-xxx
+```
+
+Run `debug-server --help` or see [`docs/cli.md`](docs/cli.md) for command walkthroughs covering repository initialization, session creation, log streaming, debugger control, and artifact downloads.

@@ -34,7 +34,10 @@ conda activate debug-server && python --version
 
 # Run repo+storage smoke tests.
 ./scripts/bootstrap.py --check
-pytest tests/bootstrap
+pytest
+
+# Install the shared CLI/SDK (editable mode recommended during development).
+pip install --no-build-isolation -e .
 ```
 
 Automatic Miniconda installation currently supports Linux x86_64 hosts only. Update `conda_installer_url` and `conda_installer_sha256` in `config/bootstrap.toml` when provisioning macOS or Windows machines.

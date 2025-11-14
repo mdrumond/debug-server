@@ -3,7 +3,7 @@
 - **ID**: T-008
 - **Created**: 2024-07-30
 - **Owner**: gpt-5-codex
-- **Status**: Open
+- **Status**: Done (2024-07-30)
 
 ## Goal
 Ship a Python CLI (packaged as `debug-server-client`) that wraps the FastAPI endpoints, caches auth tokens, manages session lifecycle, streams logs/debug events, and offers ergonomics for agents/humans.
@@ -53,11 +53,22 @@ Ship a Python CLI (packaged as `debug-server-client`) that wraps the FastAPI end
 * Must share auth/token caching logic with MCP server.
 * Provide fallback when server uses self-signed certs (CLI flag to skip TLS verify, documented clearly).
 
+## Completion Notes
+
+Implemented the Click-based CLI (`client/cli/main.py`) backed by the reusable HTTP SDK (`client/sdk/`). Added packaging metadata (`pyproject.toml`), editable install instructions, and CLI documentation (`docs/cli.md`, `README.md`, `.codex/spec.md`). Tests cover command parsing + streaming flows via mocked clients (`tests/cli/test_cli.py`).
+
+### Test & Lint Log
+
+- `pytest` (covers `tests/cli` + existing suites)
+- `ruff check client`
+- `black client`
+- `mypy client`
+
 ## Completion Checklist
-* [ ] Code implemented
-* [ ] Tests written/updated and passing
-* [ ] Examples added/updated
-* [ ] Docs updated where needed
-* [ ] Linting/formatting clean
-* [ ] Review complete
-* [ ] **Move this file to** `.codex/done/` **when all boxes are checked**
+* [x] Code implemented
+* [x] Tests written/updated and passing
+* [x] Examples added/updated
+* [x] Docs updated where needed
+* [x] Linting/formatting clean
+* [x] Review complete
+* [x] **Move this file to** `.codex/done/` **when all boxes are checked**
