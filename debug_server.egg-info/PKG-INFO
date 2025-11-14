@@ -1,0 +1,91 @@
+Metadata-Version: 2.4
+Name: debug-server
+Version: 0.1.0
+Summary: Split packaging metadata for debug server backend and client (CLI/SDK)
+Author: debug-server
+Requires-Python: >=3.11
+Description-Content-Type: text/markdown
+Requires-Dist: sqlmodel>=0.0.16
+Requires-Dist: sqlalchemy>=2.0.30
+Requires-Dist: alembic>=1.13.1
+Requires-Dist: typer>=0.12.3
+Requires-Dist: rich>=13.7.0
+Requires-Dist: click>=8.0
+Provides-Extra: dev
+Requires-Dist: pytest>=8.2.0; extra == "dev"
+Requires-Dist: black>=24.4.0; extra == "dev"
+Requires-Dist: ruff>=0.5.0; extra == "dev"
+Requires-Dist: mypy>=1.10.0; extra == "dev"
+
+# Debug Server Bootstrap
+
+This repository currently focuses on a reproducible bootstrap path for the future debug server. The steps below create the host environment, verify the already-cloned repository, and run smoke checks to ensure storage and credentials work before the higher-level services are implemented.
+
+## Prerequisites
+
+- Python 3.11+
+- `git`
+- Miniconda/Mamba (`conda` on `PATH`). If Conda is unavailable the bootstrap script downloads and verifies the Linux x86_64 Miniconda installer (accepting the license with `-b`) and installs it to `.artifacts/miniconda3`. Non-Linux hosts must update `conda_installer_url` and `conda_installer_sha256` in `config/bootstrap.toml` before running the script.
+
+## Quick Start
+
+```bash
+# Inspect or edit the bootstrap configuration.
+cp config/bootstrap.toml config/bootstrap.local.toml
+$EDITOR config/bootstrap.local.toml
+
+# Run a dry-run check to validate prerequisites.
+./scripts/bootstrap.py --config config/bootstrap.local.toml --check
+
+# Provision the environment, verify the repository checkout, and prepare storage artifacts.
+./scripts/bootstrap.py --config config/bootstrap.local.toml
+```
+
+The script will:
+
+1. Ensure the required binaries (`git`, `conda`, etc.) are present.
+2. Download, verify, and install Miniconda when `conda` is not already on `PATH`, then create or update the Conda environment declared in `environment.yml`. When corporate proxies inject custom certificate bundles the script automatically exports `CONDA_SSL_VERIFY` using the existing `REQUESTS_CA_BUNDLE`/`SSL_CERT_FILE`/`PIP_CERT`/`CODEX_PROXY_CERT` values so Conda can trust the intercepted HTTPS traffic.
+3. Confirm the repository in `repository.path` already exists (Codex checks out the repo for you) and run `git fetch --all --prune` to refresh it.
+4. Prepare storage folders and run a SQLite read/write smoke test.
+5. Warn when the expected bearer token environment variable is missing.
+
+## Smoke Tests
+
+To verify connectivity to required services and ensure the bootstrap artifacts stay healthy, run:
+
+```bash
+./scripts/bootstrap.py --check
+pytest tests/bootstrap
+```
+
+These commands double as CI checks and should be executed before sending a pull request.
+
+## Metadata Store & Tooling
+
+The execution service now ships a SQLite metadata store defined with SQLModel and Alembic
+migrations under `debug_server/db/`. Use the following commands to work with the database:
+
+```bash
+# Create the default database and apply all migrations.
+python -m debug_server.db.migrate upgrade head
+
+# Inspect the migration history.
+python -m debug_server.db.migrate history
+
+# Generate a personal access token for API access.
+python -m debug_server.db.admin create-token ops --scopes admin,cli
+```
+
+All commands honor `DEBUG_SERVER_DB_URL`; when unset they default to the bootstrap-managed
+SQLite file `.artifacts/data/metadata.db`. See [`docs/architecture.md`](docs/architecture.md)
+for a breakdown of the schema and persistence workflow.
+## Python CLI
+
+The repository now ships a Click-based CLI bundled with the shared `debug-server-client` package. Install it in editable mode and configure your token once per machine:
+
+```bash
+pip install -e .
+debug-server configure --base-url https://debug.example.com --token sk-xxx
+```
+
+Run `debug-server --help` or see [`docs/cli.md`](docs/cli.md) for command walkthroughs covering repository initialization, session creation, log streaming, debugger control, and artifact downloads.

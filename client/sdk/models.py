@@ -7,6 +7,13 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
 
+try:  # pragma: no cover - Python 3.11+ exposes datetime.UTC
+    from datetime import UTC
+except ImportError:  # pragma: no cover - fallback for older runtimes
+    from datetime import timezone as _timezone
+
+    UTC = _timezone.utc  # noqa: UP017
+
 
 def _to_iso(value: datetime) -> str:
     if value.tzinfo is None:
@@ -16,14 +23,6 @@ def _to_iso(value: datetime) -> str:
 
 def _from_iso(value: str) -> datetime:
     return datetime.fromisoformat(value)
-
-
-try:  # pragma: no cover - Python 3.11+ exposes datetime.UTC
-    from datetime import UTC
-except ImportError:  # pragma: no cover - fallback for older runtimes
-    from datetime import timezone as _timezone
-
-    UTC = _timezone.utc  # noqa: UP017
 
 
 @dataclass
