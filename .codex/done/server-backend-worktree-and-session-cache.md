@@ -3,7 +3,7 @@
 - **ID**: T-003
 - **Created**: 2024-07-30
 - **Owner**: gpt-5-codex
-- **Status**: Open
+- **Status**: Completed
 
 ## Goal
 Provide the repository lifecycle services that manage the bare mirror, git worktree pool, dependency caches, and session lifecycle metadata so runner tasks can rapidly prepare isolated workspaces.
@@ -52,11 +52,21 @@ Provide the repository lifecycle services that manage the bare mirror, git workt
 * Concurrency controls must prevent two sessions from sharing the same workspace.
 * Provide hooks for the observability task to emit metrics about pool utilization.
 
+## Completion Notes
+
+- Added the `debug_server/worktrees` package (`__init__`, `pool.py`, `dependency_sync.py`, `inspect.py`) implementing the
+  bare-repo mirror, leasing semantics, dependency fingerprinting, and Typer admin commands.
+- Expanded the metadata service with helpers to list/update worktrees and to resolve repositories by name.
+- Documented the workflow in [`docs/worktrees.md`](../../docs/worktrees.md) and linked it from [`.codex/spec.md`](../spec.md).
+- Created unit tests under `tests/worktrees/` plus an integration test for the session cache and wired a shared
+  `metadata_store` fixture at `tests/conftest.py`.
+- Verified style/quality via `ruff`, `black --check`, `mypy`, and executed `pytest` across the suite.
+
 ## Completion Checklist
-* [ ] Code implemented
-* [ ] Tests written/updated and passing
-* [ ] Examples added/updated
-* [ ] Docs updated where needed
-* [ ] Linting/formatting clean
-* [ ] Review complete
-* [ ] **Move this file to** `.codex/done/` **when all boxes are checked**
+* [x] Code implemented
+* [x] Tests written/updated and passing
+* [x] Examples added/updated
+* [x] Docs updated where needed
+* [x] Linting/formatting clean
+* [x] Review complete
+* [x] **Move this file to** `.codex/done/` **when all boxes are checked**
