@@ -9,13 +9,14 @@ import os
 import platform
 import shutil
 import sqlite3
+import ssl
 import subprocess
 import sys
 import urllib.request
-from urllib.error import URLError
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Iterable
+from urllib.error import URLError
 
 try:  # Python 3.11+
     import tomllib
@@ -64,7 +65,7 @@ class BootstrapConfig:
     required_binaries: list[str] = field(default_factory=lambda: ["git"])
 
     @classmethod
-    def from_mapping(cls, data: dict) -> "BootstrapConfig":
+    def from_mapping(cls, data: dict) -> BootstrapConfig:
         env = data.get("environment", {})
         repo = data.get("repository", {})
         storage = data.get("storage", {})
@@ -80,9 +81,7 @@ class BootstrapConfig:
         if "sqlite_path" not in storage:
             missing_fields.append("storage.sqlite_path")
         if missing_fields:
-            raise ValueError(
-                f"Missing required configuration keys: {', '.join(missing_fields)}"
-            )
+            raise ValueError(f"Missing required configuration keys: {', '.join(missing_fields)}")
 
         environment = EnvironmentSettings(
             name=env.get("name", "debug-server"),
@@ -109,9 +108,7 @@ class BootstrapConfig:
             sqlite_path=storage["sqlite_path"],
         )
         auth_settings = AuthSettings(
-            token_environment_variable=auth.get(
-                "token_environment_variable", "DEBUG_SERVER_TOKEN"
-            ),
+            token_environment_variable=auth.get("token_environment_variable", "DEBUG_SERVER_TOKEN"),
         )
         return cls(
             environment=environment,
@@ -122,7 +119,7 @@ class BootstrapConfig:
         )
 
     @classmethod
-    def load(cls, path: Path) -> "BootstrapConfig":
+    def load(cls, path: Path) -> BootstrapConfig:
         if not path.exists():
             raise FileNotFoundError(f"Configuration file not found: {path}")
         with path.open("rb") as handle:
@@ -148,9 +145,7 @@ class BootstrapManager:
     def ensure_required_binaries(self) -> None:
         for binary in self.config.required_binaries:
             if shutil.which(binary) is None:
-                raise RuntimeError(
-                    f"Required binary '{binary}' is not available on PATH"
-                )
+                raise RuntimeError(f"Required binary '{binary}' is not available on PATH")
             self._log(f"✓ Found binary: {binary}")
         if self.config.environment.use_conda:
             resolved = self._ensure_conda_available(self.config.environment)
@@ -161,9 +156,7 @@ class BootstrapManager:
         if env.use_conda:
             self._prepare_conda_environment(env)
         else:
-            self._log(
-                "Conda usage disabled in config; skipping environment provisioning"
-            )
+            self._log("Conda usage disabled in config; skipping environment provisioning")
 
     def prepare_repository(self) -> None:
         repo = self.config.repository
@@ -171,7 +164,10 @@ class BootstrapManager:
         git_dir = repo_path / ".git"
         if not git_dir.exists():
             raise RuntimeError(
-                f"Repository path '{repo_path}' is missing a .git directory. The bootstrap script expects the repo to be cloned already.",
+                (
+                    f"Repository path '{repo_path}' is missing a .git directory. "
+                    "The bootstrap script expects the repo to be cloned already."
+                ),
             )
         self._validate_git_repository(repo_path)
         if self.dry_run:
@@ -211,7 +207,10 @@ class BootstrapManager:
         conda_cmd = env.conda_command or "conda"
         if self.dry_run:
             self._log(
-                f"[DRY-RUN] Would create or update Conda env '{env.name}' via {conda_cmd} using {env.conda_environment_file}",
+                (
+                    f"[DRY-RUN] Would create or update Conda env '{env.name}' via "
+                    f"{conda_cmd} using {env.conda_environment_file}"
+                ),
             )
             return
         env_file = Path(env.conda_environment_file)
@@ -220,9 +219,7 @@ class BootstrapManager:
                 f"Conda environment file '{env.conda_environment_file}' not found. Update config or add the file.",
             )
         self._ensure_conda_ssl_verify()
-        list_output = self._run(
-            [conda_cmd, "env", "list", "--json"], capture_output=True
-        )
+        list_output = self._run([conda_cmd, "env", "list", "--json"], capture_output=True)
         env_exists = self._conda_env_exists(list_output, env.name)
         command = [
             conda_cmd,
@@ -304,13 +301,9 @@ class BootstrapManager:
         install_dir.parent.mkdir(parents=True, exist_ok=True)
         installer_path = install_dir.parent / "miniconda-installer.sh"
         self._log(f"→ Downloading Miniconda from {installer_url}")
-        with urllib.request.urlopen(installer_url) as response, installer_path.open(
-            "wb"
-        ) as handle:
+        with urllib.request.urlopen(installer_url) as response, installer_path.open("wb") as handle:
             shutil.copyfileobj(response, handle)
-        expected_sha = env.conda_installer_sha256 or self._download_remote_sha256(
-            installer_url
-        )
+        expected_sha = env.conda_installer_sha256 or self._download_remote_sha256(installer_url)
         if not expected_sha:
             raise RuntimeError(
                 "Unable to determine the Miniconda installer checksum. Provide 'conda_installer_sha256' in config/bootstrap.toml or make the .sha256 file accessible."
@@ -376,9 +369,12 @@ class BootstrapManager:
         if not candidate:
             return
         path, source = candidate
-        os.environ["CONDA_SSL_VERIFY"] = path
+        bundle_path, bundle_source = self._prepare_conda_certificate_bundle(path, source)
+        bundle_path = str(Path(bundle_path).resolve())
+        os.environ["CONDA_SSL_VERIFY"] = bundle_path
+        self._propagate_certificate_bundle(bundle_path, source)
         self._log(
-            f"✓ Exported CONDA_SSL_VERIFY from {source} so Conda trusts the configured certificate bundle"
+            f"✓ Exported CONDA_SSL_VERIFY from {bundle_source} so Conda trusts the configured certificate bundle"
         )
 
     @staticmethod
@@ -397,15 +393,96 @@ class BootstrapManager:
                 return str(candidate), env_var
         return None
 
+    def _prepare_conda_certificate_bundle(self, path: str, source: str) -> tuple[str, str]:
+        """Combine the proxy CA bundle with the system trust store when available."""
+
+        system_bundle = self._detect_system_certificate_bundle()
+        if not system_bundle:
+            return path, source
+
+        proxy_path = Path(path)
+        system_path = Path(system_bundle)
+        try:
+            if proxy_path.resolve() == system_path.resolve():
+                return str(proxy_path), source
+        except OSError:
+            pass
+        system_bytes: bytes | None
+        try:
+            system_bytes = self._read_system_certificate_bundle(system_path)
+        except OSError:
+            return path, source
+        if system_bytes is None:
+            return path, source
+
+        combined_path = self._conda_certificate_bundle_path()
+        combined_path.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            custom_bytes = proxy_path.read_bytes().rstrip() + b"\n"
+            combined_path.write_bytes(custom_bytes + system_bytes)
+        except OSError:
+            return path, source
+        return str(combined_path), f"{source} + system trust store"
+
+    @staticmethod
+    def _conda_certificate_bundle_path() -> Path:
+        return Path(".artifacts") / "certs" / "conda-ca-bundle.pem"
+
+    def _propagate_certificate_bundle(self, bundle_path: str, source_env_var: str) -> None:
+        """Ensure other TLS-aware tools reuse the merged certificate bundle."""
+
+        os.environ[source_env_var] = bundle_path
+        for env_var in ("REQUESTS_CA_BUNDLE", "SSL_CERT_FILE", "PIP_CERT"):
+            if env_var == source_env_var:
+                continue
+            if os.environ.get(env_var):
+                continue
+            os.environ[env_var] = bundle_path
+
+    @staticmethod
+    def _detect_system_certificate_bundle() -> str | None:
+        default_paths = ssl.get_default_verify_paths()
+        cafile = default_paths.openssl_cafile
+        capath = default_paths.openssl_capath
+        if cafile and Path(cafile).is_file():
+            return cafile
+        if capath and Path(capath).is_dir():
+            return capath
+        try:
+            import certifi  # type: ignore
+
+        except (ImportError, AttributeError):  # pragma: no cover - optional dependency, best-effort fallback
+            return None
+        certifi_path = Path(certifi.where())
+        return str(certifi_path) if certifi_path.is_file() else None
+
+    @staticmethod
+    def _read_system_certificate_bundle(system_path: Path) -> bytes | None:
+        if system_path.is_file():
+            return system_path.read_bytes().strip() + b"\n"
+        if not system_path.is_dir():
+            return None
+        chunks: list[bytes] = []
+        for entry in sorted(system_path.iterdir()):
+            if not entry.is_file():
+                continue
+            try:
+                data = entry.read_bytes().strip()
+            except OSError:
+                continue
+            if data:
+                chunks.append(data + b"\n")
+        if not chunks:
+            return None
+        return b"".join(chunks)
+
     @staticmethod
     def _log(message: str) -> None:
         print(message)
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(
-        description="Provision the debug-server bootstrap environment"
-    )
+    parser = argparse.ArgumentParser(description="Provision the debug-server bootstrap environment")
     parser.add_argument(
         "--config",
         default="config/bootstrap.toml",
