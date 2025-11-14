@@ -15,7 +15,7 @@
 2. **Client Surfaces**
    - The CLI and MCP server ship from the same Python package, simplifying distribution (e.g., `pip install debug-server-client`). Both surfaces wrap the shared FastAPI endpoints so fixes/features land in one codebase.
    - **CLI**: Human/agent-friendly entry point (`client/cli/main.py`) implemented with Click that starts sessions, streams logs, attaches debuggers, downloads artifacts, packages local patches, and declares dependency metadata when initializing the server. The CLI is bundled with the shared SDK defined under `client/sdk/` and exported via the `debug-server` console script.
-   - **MCP Server**: Mirrors CLI functionality for LLM agents via the Model Context Protocol (session lifecycle, log streaming, debugger control). Acts as a tool endpoint LLMs can call.
+   - **MCP Server**: Mirrors CLI functionality for LLM agents via the Model Context Protocol (session lifecycle, log streaming, debugger control). Implemented under `client/mcp/server.py`, which exposes `debug-server.*` tool schemas, a stdio loop entry point (`python -m debug_server.mcp.server --stdio`), and reusable manifest/config helpers so MCP hosts can embed the tools without duplicating SDK logic.
    - **VS Code Extension**: Reuses the Python client package under the hood to offer UI for starting sessions, viewing logs, and attaching VS Code's debugger to remote Python/Node/etc targets forwarded by the execution server.
 
 ## Repository Lifecycle

@@ -32,7 +32,7 @@ Source = "https://github.com/openai/debug-server"
 debug-server = "client.cli.main:main"
 
 [tool.setuptools.packages.find]
-include = ["client*"]
+include = ["client*", "debug_server*"]
 
 [tool.black]
 line-length = 100

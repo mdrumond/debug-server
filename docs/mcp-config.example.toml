@@ -1,0 +1,4 @@
+# Example configuration consumed by client.mcp.server
+base_url = "https://debug-server.internal:8443"
+token = "pat-xxxxxxxxxxxx"
+verify_tls = true

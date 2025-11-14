@@ -1,0 +1,81 @@
+{
+  "name": "debug-server",
+  "version": "0.1.0",
+  "endpoints": {
+    "repository": "https://debug-server.internal:8443/repository",
+    "sessions": "https://debug-server.internal:8443/sessions"
+  },
+  "tools": [
+    {
+      "name": "debug-server.repository.init",
+      "description": "Initialize the tracked repository and dependency manifests.",
+      "input_schema": {
+        "type": "object",
+        "required": ["remote_url"],
+        "properties": {
+          "remote_url": {"type": "string", "format": "uri"},
+          "default_branch": {"type": "string"},
+          "dependency_manifests": {"type": "array", "items": {"type": "string"}, "default": []},
+          "allow_self_signed": {"type": "boolean", "default": false}
+        }
+      }
+    },
+    {
+      "name": "debug-server.session.create",
+      "description": "Create a new debug session at a commit + optional patch.",
+      "input_schema": {
+        "type": "object",
+        "required": ["commit"],
+        "properties": {
+          "commit": {"type": "string"},
+          "commands": {"type": "array", "items": {"type": "string"}},
+          "patch": {"type": "string"},
+          "metadata": {"type": "object", "additionalProperties": {"type": "string"}}
+        }
+      }
+    },
+    {
+      "name": "debug-server.session.info",
+      "description": "Fetch metadata for an existing session.",
+      "input_schema": {
+        "type": "object",
+        "required": ["session_id"],
+        "properties": {"session_id": {"type": "string"}}
+      }
+    },
+    {
+      "name": "debug-server.session.logs",
+      "description": "Stream structured logs for a session.",
+      "input_schema": {
+        "type": "object",
+        "required": ["session_id"],
+        "properties": {
+          "session_id": {"type": "string"},
+          "follow": {"type": "boolean", "default": false}
+        }
+      }
+    },
+    {
+      "name": "debug-server.session.commands",
+      "description": "List commands queued/executed by the session.",
+      "input_schema": {
+        "type": "object",
+        "required": ["session_id"],
+        "properties": {"session_id": {"type": "string"}}
+      }
+    },
+    {
+      "name": "debug-server.session.debug",
+      "description": "Send a debugger control action to an existing session.",
+      "input_schema": {
+        "type": "object",
+        "required": ["session_id", "action"],
+        "properties": {
+          "session_id": {"type": "string"},
+          "action": {"type": "string"},
+          "payload": {"type": "object", "additionalProperties": {"type": "string"}, "default": {}}
+        }
+      }
+    }
+  ]
+}

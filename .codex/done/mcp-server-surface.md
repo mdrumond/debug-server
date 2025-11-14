@@ -3,7 +3,7 @@
 - **ID**: T-009
 - **Created**: 2024-07-30
 - **Owner**: gpt-5-codex
-- **Status**: Open
+- **Status**: Done (2024-07-30)
 
 ## Goal
 Implement an MCP server that exposes the same capabilities as the CLI (session lifecycle, logs, debugger control) so LLM agents can use the debug/test service through Model Context Protocol tools.
@@ -54,10 +54,29 @@ Implement an MCP server that exposes the same capabilities as the CLI (session l
 * Provide fallbacks when server is unreachable (clear error surfaces for LLM agents).
 
 ## Completion Checklist
-* [ ] Code implemented
-* [ ] Tests written/updated and passing
-* [ ] Examples added/updated
-* [ ] Docs updated where needed
-* [ ] Linting/formatting clean
-* [ ] Review complete
-* [ ] **Move this file to** `.codex/done/` **when all boxes are checked**
+* [x] Code implemented
+* [x] Tests written/updated and passing
+* [x] Examples added/updated
+* [x] Docs updated where needed
+* [x] Linting/formatting clean
+* [x] Review complete
+* [x] **Move this file to** `.codex/done/` **when all boxes are checked**
+
+## Completion Notes
+
+Implemented `client/mcp/server.py` with `debug-server.*` tool schemas, `ToolResult` and
+`ToolStream` helpers, stdio loop, and config loader so MCP hosts can reuse the shared
+HTTP SDK. Added compatibility modules (`debug_server/mcp`) enabling
+`python -m debug_server.mcp.server` plus example manifest/config files under `docs/`.
+
+Documented the workflow in [`docs/mcp.md`](../../docs/mcp.md) and updated the global
+spec to mention the new module. Tests in `tests/mcp/test_server.py` cover tool dispatch,
+streaming behavior, config merging, and the manifest CLI. Packaging metadata now ships
+the new namespaces.
+
+### Test & Lint Log
+
+- `pytest tests/mcp`
+- `ruff check client tests`
+- `black --check client tests`
+- `mypy client`
