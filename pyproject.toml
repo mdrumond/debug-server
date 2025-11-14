@@ -32,7 +32,7 @@ requires = ["setuptools", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
-include = ["debug_server*", "client*"]
+include = ["client*", "debug_server*"]
 
 [tool.black]
 line-length = 100
