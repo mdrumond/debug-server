@@ -50,6 +50,11 @@ class MetadataAttributeMixin:
                 pass
         return super().__getattribute__(name)
 
+    def __setattr__(self, name: str, value: Any) -> None:
+        if name == "metadata":
+            super().__setattr__("metadata_json", value)
+        else:
+            super().__setattr__(name, value)
 
 class Repository(SQLModel, table=True):
     """Tracked upstream repository configuration."""
