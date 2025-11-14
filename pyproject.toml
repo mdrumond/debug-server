@@ -1,7 +1,7 @@
 [project]
 name = "debug-server"
 version = "0.1.0"
-description = "Debug server backend, CLI, and SDK packaged together"
+description = "Split packaging metadata for debug server backend and client (CLI/SDK)"
 readme = "README.md"
 requires-python = ">=3.11"
 authors = [{ name = "debug-server" }]
