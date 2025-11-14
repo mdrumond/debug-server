@@ -1,11 +1,11 @@
 from __future__ import annotations
 
+import json
+import os
 import shutil
 import sqlite3
 import subprocess
 import sys
-import json
-import os
 from pathlib import Path
 
 import pytest
@@ -73,7 +73,9 @@ def test_prepare_repository_errors_on_invalid_git_dir(tmp_path: Path) -> None:
         manager.prepare_repository()
 
 
-def test_run_smoke_tests_warns_when_env_missing(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+def test_run_smoke_tests_warns_when_env_missing(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
     config = _base_config(tmp_path, token_env="TEST_TOKEN_ENV")
     manager = BootstrapManager(config, dry_run=False)
     manager.prepare_storage()
@@ -83,7 +85,9 @@ def test_run_smoke_tests_warns_when_env_missing(tmp_path: Path, capsys: pytest.C
     assert "⚠️" in output
 
 
-def test_dry_run_does_not_mutate_directories(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+def test_dry_run_does_not_mutate_directories(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
     config = _base_config(tmp_path)
     manager = BootstrapManager(config, dry_run=True)
     manager.prepare_storage()
@@ -119,7 +123,15 @@ def test_installs_conda_when_missing(monkeypatch: pytest.MonkeyPatch, tmp_path: 
 def test_conda_env_exists_uses_json_listing(tmp_path: Path) -> None:
     config = _base_config(tmp_path)
     manager = BootstrapManager(config, dry_run=True)
-    listing = json.dumps({"envs": ["/tmp/miniconda/envs/test-env", "/tmp/miniconda/envs/other"]})
+    env_root = tmp_path / "miniconda" / "envs"
+    listing = json.dumps(
+        {
+            "envs": [
+                str(env_root / "test-env"),
+                str(env_root / "other"),
+            ]
+        }
+    )
     assert manager._conda_env_exists(listing, "test-env")
     assert not manager._conda_env_exists(listing, "missing")
 
@@ -133,6 +145,7 @@ def test_sets_conda_ssl_verify_from_requests_bundle(
     cert_path.write_text("dummy")
     monkeypatch.delenv("CONDA_SSL_VERIFY", raising=False)
     monkeypatch.setenv("REQUESTS_CA_BUNDLE", str(cert_path))
+    monkeypatch.setattr(manager, "_detect_system_certificate_bundle", lambda: None)
 
     manager._ensure_conda_ssl_verify()
 
@@ -152,3 +165,25 @@ def test_does_not_override_existing_conda_ssl_verify(
     manager._ensure_conda_ssl_verify()
 
     assert os.environ["CONDA_SSL_VERIFY"] == "false"
+
+
+def test_combines_proxy_bundle_with_system_store(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    config = _base_config(tmp_path, use_conda=True)
+    manager = BootstrapManager(config, dry_run=True)
+    proxy_bundle = tmp_path / "proxy.crt"
+    proxy_bundle.write_text("CUSTOM")
+    system_bundle = tmp_path / "system.crt"
+    system_bundle.write_text("SYSTEM")
+    combined_path = tmp_path / "combined.pem"
+
+    monkeypatch.delenv("CONDA_SSL_VERIFY", raising=False)
+    monkeypatch.setenv("REQUESTS_CA_BUNDLE", str(proxy_bundle))
+    monkeypatch.setattr(manager, "_conda_certificate_bundle_path", lambda: combined_path)
+    monkeypatch.setattr(manager, "_detect_system_certificate_bundle", lambda: str(system_bundle))
+
+    manager._ensure_conda_ssl_verify()
+
+    assert os.environ["CONDA_SSL_VERIFY"] == str(combined_path)
+    assert combined_path.read_text() == "CUSTOM\nSYSTEM\n"
