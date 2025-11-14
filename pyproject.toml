@@ -1,17 +1,23 @@
 [project]
 name = "debug-server"
 version = "0.1.0"
-description = "Metadata store and tooling for the debug server"
+description = "Debug server backend, CLI, and SDK packaged together"
 readme = "README.md"
 requires-python = ">=3.11"
 authors = [{ name = "debug-server" }]
 dependencies = [
+    # Server requirements
     "sqlmodel>=0.0.16",
     "sqlalchemy>=2.0.30",
     "alembic>=1.13.1",
     "typer>=0.12.3",
     "rich>=13.7.0",
+    # Client CLI + SDK requirements
+    "click>=8.0",
 ]
+
+[project.scripts]
+debug-server = "client.cli.main:main"
 
 [project.optional-dependencies]
 dev = [
@@ -26,7 +32,7 @@ requires = ["setuptools", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
-include = ["debug_server*"]
+include = ["debug_server*", "client*"]
 
 [tool.black]
 line-length = 100
