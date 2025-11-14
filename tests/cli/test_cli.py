@@ -1,19 +1,26 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
-from pathlib import Path
+import importlib
 import sys
+from datetime import datetime
+from pathlib import Path
 
 from click.testing import CliRunner
+
+try:  # pragma: no cover - Python 3.11+ exposes datetime.UTC
+    from datetime import UTC
+except ImportError:  # pragma: no cover - fallback for older runtimes
+    from datetime import timezone as _timezone
+
+    UTC = _timezone.utc  # noqa: UP017
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-import importlib
-
 cli_main = importlib.import_module("client.cli.main")
-from client.sdk.models import (
+
+from client.sdk.models import (  # noqa: E402
     ArtifactMetadata,
     DebugActionResponse,
     LogEntry,
@@ -50,13 +57,13 @@ class DummyClient:
             status="running",
             commit=request.commit,
             commands=list(request.commands),
-            created_at=datetime.now(timezone.utc),
+            created_at=datetime.now(UTC),
             metadata=request.metadata,
         )
 
     def stream_session_logs(self, session_id: str, *, follow: bool = False):
         self.logs_follow = follow
-        yield LogEntry(message="log-line", stream="stdout", timestamp=datetime.now(timezone.utc))
+        yield LogEntry(message="log-line", stream="stdout", timestamp=datetime.now(UTC))
 
     def send_debug_action(self, session_id: str, action):
         self.debug_actions.append(action.action)

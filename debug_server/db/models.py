@@ -9,27 +9,52 @@ from uuid import uuid4
 
 from sqlalchemy import JSON, Column, String
 from sqlalchemy import Enum as SAEnum
+from sqlalchemy.orm import relationship
 from sqlmodel import Field, Relationship, SQLModel
+
+try:  # pragma: no cover - Python >=3.11 ships datetime.UTC
+    from datetime import UTC
+except ImportError:  # pragma: no cover - fallback for older runtimes
+    from datetime import timezone as _timezone
+
+    UTC = _timezone.utc  # noqa: UP017
 
 
 def utc_now() -> datetime:
     """Return the current UTC timestamp as a timezone-aware datetime."""
 
-    return datetime.now(datetime.UTC)
+    return datetime.now(UTC)
 
 
-class TimestampMixin(SQLModel):
+class TimestampMixin:
     """Common timestamp fields."""
 
     created_at: datetime = Field(default_factory=utc_now, nullable=False)
     updated_at: datetime = Field(default_factory=utc_now, nullable=False)
 
 
-class VersionedMixin(SQLModel):
+class VersionedMixin:
     """Adds an integer version column for optimistic locking."""
 
     version: int = Field(default=1, nullable=False)
 
+
+class MetadataAttributeMixin:
+    """Expose the JSON metadata column via a safe attribute name."""
+
+    def __getattribute__(self, name: str) -> Any:  # noqa: D401 - behavior described above
+        if name == "metadata":
+            try:
+                return super().__getattribute__("metadata_json")
+            except AttributeError:
+                pass
+        return super().__getattribute__(name)
+
+    def __setattr__(self, name: str, value: Any) -> None:
+        if name == "metadata":
+            super().__setattr__("metadata_json", value)
+        else:
+            super().__setattr__(name, value)
 
 class Repository(SQLModel, table=True):
     """Tracked upstream repository configuration."""
@@ -37,7 +62,9 @@ class Repository(SQLModel, table=True):
     __tablename__ = "repositories"
 
     id: int | None = Field(default=None, primary_key=True)
-    name: str = Field(index=True, nullable=False, sa_column=Column(String(255), unique=True))
+    name: str = Field(
+        sa_column=Column(String(255), unique=True, nullable=False, index=True),
+    )
     remote_url: str = Field(sa_column=Column(String(1024), nullable=False))
     default_branch: str = Field(sa_column=Column(String(255), nullable=False))
     description: str | None = Field(default=None, sa_column=Column(String(1024)))
@@ -49,8 +76,12 @@ class Repository(SQLModel, table=True):
     created_at: datetime = Field(default_factory=utc_now, nullable=False)
     updated_at: datetime = Field(default_factory=utc_now, nullable=False)
 
-    worktrees: list[Worktree] = Relationship(back_populates="repository")
-    sessions: list[Session] = Relationship(back_populates="repository")
+    worktrees: list[Worktree] = Relationship(
+        sa_relationship=relationship("Worktree", back_populates="repository"),
+    )
+    sessions: list[Session] = Relationship(
+        sa_relationship=relationship("Session", back_populates="repository"),
+    )
 
 
 class WorktreeStatus(str, enum.Enum):
@@ -85,8 +116,12 @@ class Worktree(SQLModel, TimestampMixin, VersionedMixin, table=True):
     lease_expires_at: datetime | None = None
     last_heartbeat_at: datetime | None = None
 
-    repository: Repository = Relationship(back_populates="worktrees")
-    sessions: list[Session] = Relationship(back_populates="worktree")
+    repository: Repository = Relationship(
+        sa_relationship=relationship("Repository", back_populates="worktrees"),
+    )
+    sessions: list[Session] = Relationship(
+        sa_relationship=relationship("Session", back_populates="worktree"),
+    )
 
 
 class SessionStatus(str, enum.Enum):
@@ -99,7 +134,7 @@ class SessionStatus(str, enum.Enum):
     CANCELLED = "cancelled"
 
 
-class Session(SQLModel, TimestampMixin, table=True):
+class Session(MetadataAttributeMixin, SQLModel, TimestampMixin, table=True):
     """Represents an execution session tied to a worktree."""
 
     __tablename__ = "sessions"
@@ -118,20 +153,34 @@ class Session(SQLModel, TimestampMixin, table=True):
     expires_at: datetime | None = Field(default=None, index=True)
     started_at: datetime | None = None
     completed_at: datetime | None = None
-    metadata: dict[str, Any] = Field(
+    metadata_json: dict[str, Any] = Field(
         default_factory=dict,
-        sa_column=Column(JSON, nullable=False),
+        sa_column=Column("metadata", JSON, nullable=False),
         description="Structured metadata provided by clients.",
+        alias="metadata",
     )
 
-    repository: Repository = Relationship(back_populates="sessions")
-    worktree: Worktree | None = Relationship(back_populates="sessions")
-    commands: list[Command] = Relationship(back_populates="session")
-    artifacts: list[Artifact] = Relationship(back_populates="session")
-    token: AuthToken | None = Relationship(back_populates="sessions")
+    repository: Repository = Relationship(
+        sa_relationship=relationship("Repository", back_populates="sessions"),
+    )
+    worktree: Worktree | None = Relationship(
+        sa_relationship=relationship("Worktree", back_populates="sessions"),
+    )
+    commands: list[Command] = Relationship(
+        sa_relationship=relationship("Command", back_populates="session"),
+    )
+    artifacts: list[Artifact] = Relationship(
+        sa_relationship=relationship("Artifact", back_populates="session"),
+    )
+    token: AuthToken | None = Relationship(
+        sa_relationship=relationship("AuthToken", back_populates="sessions"),
+    )
     debugger_state: DebuggerState | None = Relationship(
-        back_populates="session",
-        sa_relationship_kwargs={"uselist": False},
+        sa_relationship=relationship(
+            "DebuggerState",
+            back_populates="session",
+            uselist=False,
+        ),
     )
 
 
@@ -165,7 +214,9 @@ class Command(SQLModel, TimestampMixin, table=True):
     completed_at: datetime | None = None
     log_path: str | None = Field(default=None, sa_column=Column(String(1024)))
 
-    session: Session = Relationship(back_populates="commands")
+    session: Session = Relationship(
+        sa_relationship=relationship("Session", back_populates="commands"),
+    )
 
 
 class ArtifactKind(str, enum.Enum):
@@ -178,7 +229,7 @@ class ArtifactKind(str, enum.Enum):
     CUSTOM = "custom"
 
 
-class Artifact(SQLModel, TimestampMixin, table=True):
+class Artifact(MetadataAttributeMixin, SQLModel, TimestampMixin, table=True):
     """Artifact metadata entries."""
 
     __tablename__ = "artifacts"
@@ -198,9 +249,15 @@ class Artifact(SQLModel, TimestampMixin, table=True):
     description: str | None = Field(default=None, sa_column=Column(String(1024)))
     size_bytes: int | None = Field(default=None)
     checksum_sha256: str | None = Field(default=None, sa_column=Column(String(64)))
-    metadata: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON, nullable=False))
+    metadata_json: dict[str, Any] = Field(
+        default_factory=dict,
+        sa_column=Column("metadata", JSON, nullable=False),
+        alias="metadata",
+    )
 
-    session: Session = Relationship(back_populates="artifacts")
+    session: Session = Relationship(
+        sa_relationship=relationship("Session", back_populates="artifacts"),
+    )
 
 
 class AuthToken(SQLModel, TimestampMixin, table=True):
@@ -216,7 +273,9 @@ class AuthToken(SQLModel, TimestampMixin, table=True):
     expires_at: datetime | None = None
     revoked_at: datetime | None = None
 
-    sessions: list[Session] = Relationship(back_populates="token")
+    sessions: list[Session] = Relationship(
+        sa_relationship=relationship("Session", back_populates="token"),
+    )
 
 
 class DebuggerState(SQLModel, TimestampMixin, table=True):
@@ -233,7 +292,9 @@ class DebuggerState(SQLModel, TimestampMixin, table=True):
     )
     payload: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON, nullable=False))
 
-    session: Session = Relationship(back_populates="debugger_state")
+    session: Session = Relationship(
+        sa_relationship=relationship("Session", back_populates="debugger_state"),
+    )
 
 
 __all__ = [

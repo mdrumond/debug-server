@@ -11,6 +11,13 @@ from .session import create_engine_from_url
 
 app = typer.Typer(help="Admin helpers for the metadata store.")
 
+try:  # pragma: no cover - datetime.UTC ships with Python 3.11+
+    from datetime import UTC
+except ImportError:  # pragma: no cover - fallback for older runtimes
+    from datetime import timezone as _timezone
+
+    UTC = _timezone.utc  # noqa: UP017
+
 
 def _store(db_url: str | None) -> MetadataStore:
     engine = create_engine_from_url(db_url)
@@ -29,7 +36,7 @@ def create_token(
     store = _store(db_url)
     expires_at = None
     if expires_in_days > 0:
-        expires_at = datetime.now(datetime.UTC) + timedelta(days=expires_in_days)
+        expires_at = datetime.now(UTC) + timedelta(days=expires_in_days)
     record, raw_token = store.create_token(
         name=name,
         scopes=scopes.split(","),
