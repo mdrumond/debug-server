@@ -5,4 +5,8 @@ dependencies:
   - python=3.11
   - pip
   - pip:
-      - tomli-w
+      - click>=8.0
+      - pytest>=8.2
+      - black>=24.4
+      - ruff>=0.4
+      - mypy>=1.8
