@@ -6,3 +6,12 @@ dependencies:
   - pip
   - pip:
       - tomli-w
+      - sqlmodel>=0.0.16
+      - sqlalchemy>=2.0.30
+      - alembic>=1.13.1
+      - typer>=0.12.3
+      - rich>=13.7.0
+      - pytest>=8.2.0
+      - ruff>=0.5.0
+      - black>=24.4.0
+      - mypy>=1.10.0
