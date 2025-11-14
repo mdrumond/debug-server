@@ -7,6 +7,7 @@ import secrets
 from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import datetime, timedelta
+from hmac import compare_digest
 
 from sqlalchemy import and_, or_
 from sqlmodel import Session, select
@@ -313,6 +314,8 @@ class MetadataStore:
             statement = select(AuthToken).where(AuthToken.token_hash == token_hash)
             record = session.exec(statement).one_or_none()
             if record is None:
+                return None
+            if not compare_digest(record.token_hash, token_hash):
                 return None
             now = datetime.now(datetime.UTC)
             expired = record.expires_at is not None and record.expires_at <= now

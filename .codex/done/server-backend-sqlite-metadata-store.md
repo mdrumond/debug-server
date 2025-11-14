@@ -78,6 +78,9 @@ Design and implement the SQLite + SQLModel persistence layer that tracks reposit
 - Replaced deprecated `datetime.utcnow()` usage with timezone-aware
   `datetime.now(datetime.UTC)` across the metadata store service, SQLModel
   definitions, admin CLI, and authentication integration tests.
+- Introduced constant-time comparison for authentication token hashes so
+  the metadata service no longer relies on default string equality when
+  validating presented credentials.
 
 ### Tests Executed
 
@@ -91,3 +94,4 @@ Design and implement the SQLite + SQLModel persistence layer that tracks reposit
 - `ruff check tests/db/conftest.py`
 - `ruff check debug_server/db tests/integration`
 - `black --check debug_server tests/integration`
+- `ruff check debug_server/db/service.py`
