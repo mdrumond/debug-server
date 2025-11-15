@@ -254,7 +254,7 @@ class WorktreePool:
                     "status": worktree.status.value,
                     "commit": worktree.commit_sha,
                     "environment_hash": worktree.environment_hash,
-                    "updated_at": worktree.updated_at.isoformat(),
+                    "updated_at": worktree.updated_at.isoformat() if worktree.updated_at else None,
                 }
             )
         return payload
