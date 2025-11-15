@@ -40,12 +40,15 @@ class DependencyStateStore:
         path = self._state_path(key)
         if not path.exists():
             return None
-        data = json.loads(path.read_text())
-        return DependencyState(
-            fingerprint=data["fingerprint"],
-            updated_at=datetime.fromisoformat(data["updated_at"]),
-            metadata=data.get("metadata"),
-        )
+        try:
+            data = json.loads(path.read_text())
+            return DependencyState(
+                fingerprint=data["fingerprint"],
+                updated_at=datetime.fromisoformat(data["updated_at"]),
+                metadata=data.get("metadata"),
+            )
+        except (json.JSONDecodeError, KeyError, ValueError):
+            return None  # Treat corrupted cache as missing
 
     def write(
         self,
