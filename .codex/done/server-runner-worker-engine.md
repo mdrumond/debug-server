@@ -62,6 +62,10 @@ Implement the worker supervisor that spawns per-session processes, provisions Co
 - Created unit tests covering environment cache invalidation, log
   subscriptions, supervisor behavior, and an integration test that exercises
   a real `WorktreePool` lease.
+- Added regression coverage for command spawn failures to ensure the
+  supervisor records a `FAILED` status and publishes the log artifact even
+  when `subprocess.Popen` cannot start, verified via
+  `python -m pytest tests/runner/test_supervisor.py`.
 - Recorded test + lint runs for traceability:
   - `python -m pytest tests/runner`
   - `python -m pytest tests/integration/test_worker_supervisor.py`

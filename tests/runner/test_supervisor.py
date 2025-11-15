@@ -17,6 +17,7 @@ from debug_server.runner import (
     SessionPatch,
     WorkerSupervisor,
 )
+from debug_server.runner.supervisor import CommandExecutionError
 
 
 @dataclass
@@ -113,6 +114,23 @@ def test_timeout_marks_cancelled(supervisor: WorkerSupervisor, tmp_path: Path) -
     )
     result = supervisor.run_command(session_id="sess-3", spec=spec, lease=lease)
     assert result.status is CommandStatus.CANCELLED
+
+
+def test_spawn_failure_records_failure(
+    supervisor: WorkerSupervisor, tmp_path: Path, metadata_store: MetadataStore
+) -> None:
+    workspace = tmp_path / "missing"
+    workspace.mkdir()
+    lease = FakeLease(path=workspace)
+    spec = CommandSpec(argv=["/definitely/not/a/real/binary"], log_name="missing")
+    with pytest.raises(CommandExecutionError):
+        supervisor.run_command(session_id="sess-4", spec=spec, lease=lease)
+
+    with metadata_store._session() as session:  # type: ignore[attr-defined]
+        command = session.exec(select(Command)).one()
+        assert command.status is CommandStatus.FAILED
+        artifact = session.exec(select(Artifact)).one()
+        assert Path(artifact.path).exists()
 
 
 def _run_git_init(path: Path) -> None:

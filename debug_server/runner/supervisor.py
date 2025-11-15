@@ -210,29 +210,39 @@ class WorkerSupervisor:
         log_dir = self.paths.logs_dir / session_id
         log_dir.mkdir(parents=True, exist_ok=True)
         log_path = log_dir / f"{spec.log_name}-{command_id}.log"
-        with LogStream(log_path) as stream:
-            for observer in stream_observers or []:
-                stream.add_listener(observer)
+        def _record_completion(status: CommandStatus, exit_code: int | None) -> None:
             self.metadata_store.record_command_result(
                 command_id,
-                status=CommandStatus.RUNNING,
-                exit_code=None,
+                status=status,
+                exit_code=exit_code,
                 log_path=str(log_path),
             )
-            exit_code, status = self._spawn_and_stream(argv, cwd, env, stream, spec.timeout)
-        self.metadata_store.record_command_result(
-            command_id,
-            status=status,
-            exit_code=exit_code,
-            log_path=str(log_path),
-        )
-        self.metadata_store.record_artifact(
-            session_id=session_id,
-            command_id=command_id,
-            kind=ArtifactKind.LOG,
-            path=str(log_path),
-            description=f"{spec.log_name} output",
-        )
+            self.metadata_store.record_artifact(
+                session_id=session_id,
+                command_id=command_id,
+                kind=ArtifactKind.LOG,
+                path=str(log_path),
+                description=f"{spec.log_name} output",
+            )
+
+        try:
+            with LogStream(log_path) as stream:
+                for observer in stream_observers or []:
+                    stream.add_listener(observer)
+                self.metadata_store.record_command_result(
+                    command_id,
+                    status=CommandStatus.RUNNING,
+                    exit_code=None,
+                    log_path=str(log_path),
+                )
+                exit_code, status = self._spawn_and_stream(
+                    argv, cwd, env, stream, spec.timeout
+                )
+        except CommandExecutionError:
+            _record_completion(CommandStatus.FAILED, None)
+            raise
+
+        _record_completion(status, exit_code)
         return CommandResult(
             command_id=command_id,
             status=status,
@@ -299,12 +309,12 @@ class WorkerSupervisor:
         check_cmd = ["git", "apply", "--check", str(patch_path)]
         apply_cmd = ["git", "apply", str(patch_path)]
         try:
-            subprocess.run(
+            subprocess.run(  # noqa: S603
                 check_cmd, cwd=workspace, check=True, capture_output=True, text=True
-            )  # noqa: S603
-            subprocess.run(
+            )
+            subprocess.run(  # noqa: S603
                 apply_cmd, cwd=workspace, check=True, capture_output=True, text=True
-            )  # noqa: S603
+            )
         except subprocess.CalledProcessError as exc:  # pragma: no cover - subprocess plumbing
             raise PatchApplicationError(exc.stderr or exc.stdout or str(exc)) from exc
 
