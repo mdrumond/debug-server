@@ -13,13 +13,6 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Protocol, TextIO, cast, runtime_checkable
 
 try:  # pragma: no cover - Python 3.11+
-    from datetime import UTC
-except ImportError:  # pragma: no cover - fallback for <3.11
-    from datetime import timezone as _timezone
-
-    UTC = _timezone.utc  # noqa: UP017
-
-try:  # pragma: no cover - Python 3.11+
     import tomllib
 except ModuleNotFoundError:  # pragma: no cover - fallback for <=3.10
     import tomli as tomllib  # type: ignore[no-redef]

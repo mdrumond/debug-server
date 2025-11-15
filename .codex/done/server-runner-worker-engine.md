@@ -66,6 +66,10 @@ Implement the worker supervisor that spawns per-session processes, provisions Co
   supervisor records a `FAILED` status and publishes the log artifact even
   when `subprocess.Popen` cannot start, verified via
   `python -m pytest tests/runner/test_supervisor.py`.
+- Addressed follow-up review feedback by removing unused imports and
+  delegating git repository bootstrapping in
+  `tests/runner/test_supervisor.py` to the shared
+  `tests.worktrees.conftest.init_git_repo` helper.
 - Recorded test + lint runs for traceability:
   - `python -m pytest tests/runner`
   - `python -m pytest tests/integration/test_worker_supervisor.py`

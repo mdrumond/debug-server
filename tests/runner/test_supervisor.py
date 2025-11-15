@@ -134,10 +134,8 @@ def test_spawn_failure_records_failure(
 
 
 def _run_git_init(path: Path) -> None:
-    from tests.worktrees.conftest import _run_git
+    from tests.worktrees.conftest import _run_git, init_git_repo
 
-    _run_git("init", "--initial-branch", "main", cwd=path)
-    _run_git("config", "user.name", "Runner Tests", cwd=path)
-    _run_git("config", "user.email", "runner@example.com", cwd=path)
+    init_git_repo(path)
     _run_git("add", "file.txt", cwd=path)
     _run_git("commit", "-m", "init", cwd=path)
