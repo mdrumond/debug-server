@@ -13,7 +13,7 @@ from .models import (
     Worktree,
     WorktreeStatus,
 )
-from .service import MetadataStore
+from .service import MetadataError, MetadataStore
 from .session import (
     create_engine_from_url,
     get_default_database_url,
@@ -27,6 +27,7 @@ __all__ = [
     "Command",
     "CommandStatus",
     "DebuggerState",
+    "MetadataError",
     "MetadataStore",
     "Repository",
     "Session",

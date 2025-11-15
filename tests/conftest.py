@@ -1,4 +1,4 @@
-"""Fixtures for DB tests."""
+"""Shared pytest fixtures."""
 
 from __future__ import annotations
 

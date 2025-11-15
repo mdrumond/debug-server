@@ -44,6 +44,10 @@ line-length = 100
 select = ["E", "F", "I", "B", "UP", "ASYNC", "S"]
 ignore = ["S101"]
 
+[tool.ruff.lint.per-file-ignores]
+"client/config.py" = ["S105"]
+"client/sdk/client.py" = ["S310"]
+
 [tool.mypy]
 python_version = "3.11"
 warn_return_any = true
@@ -55,4 +59,8 @@ disallow_untyped_defs = true
 no_implicit_optional = true
 show_error_codes = true
 pretty = true
-packages = ["client"]
+packages = ["client", "debug_server"]
+
+[[tool.mypy.overrides]]
+module = ["debug_server.db.*"]
+ignore_errors = true

@@ -55,6 +55,9 @@ def _ensure_aware(value: datetime | None) -> datetime | None:
     return value
 
 
+_UNSET = object()
+
+
 class MetadataStore:
     """High-level helper for interacting with the metadata database."""
 
@@ -96,6 +99,11 @@ class MetadataStore:
         with self._session() as session:
             return list(session.exec(select(Repository)).all())
 
+    def get_repository_by_name(self, name: str) -> Repository | None:
+        with self._session() as session:
+            statement = select(Repository).where(Repository.name == name)
+            return session.exec(statement).one_or_none()
+
     # Worktree helpers ---------------------------------------------------
     def register_worktree(
         self,
@@ -111,6 +119,34 @@ class MetadataStore:
                 commit_sha=commit_sha,
                 environment_hash=environment_hash,
             )
+            session.add(worktree)
+            session.commit()
+            session.refresh(worktree)
+            return worktree
+
+    def list_worktrees(self, repository_id: int | None = None) -> list[Worktree]:
+        with self._session() as session:
+            statement = select(Worktree)
+            if repository_id is not None:
+                statement = statement.where(Worktree.repository_id == repository_id)
+            return list(session.exec(statement).all())
+
+    def update_worktree_metadata(
+        self,
+        worktree_id: int,
+        *,
+        commit_sha: str | None | object = _UNSET,
+        environment_hash: str | None | object = _UNSET,
+    ) -> Worktree:
+        with self._session() as session:
+            worktree = session.get(Worktree, worktree_id)
+            if worktree is None:
+                raise MetadataError("Unknown worktree")
+            if commit_sha is not _UNSET:
+                worktree.commit_sha = commit_sha
+            if environment_hash is not _UNSET:
+                worktree.environment_hash = environment_hash
+            worktree.updated_at = datetime.now(UTC)
             session.add(worktree)
             session.commit()
             session.refresh(worktree)
