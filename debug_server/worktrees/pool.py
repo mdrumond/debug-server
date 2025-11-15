@@ -182,7 +182,6 @@ class WorktreePool:
     def _clone_checkout(self, path: Path) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)
         self._run_git("clone", str(self.settings.bare_path), str(path))
-        self._run_git("remote", "set-url", "origin", str(self.settings.bare_path), cwd=path)
 
     def _checkout_commit(self, path: Path, commit_sha: str) -> None:
         try:
