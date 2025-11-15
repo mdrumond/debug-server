@@ -1,0 +1,8 @@
+[paths]
+artifacts = ".artifacts"
+logs = ".artifacts/logs"
+environments = ".artifacts/envs"
+patches = ".artifacts/patches"
+
+[runner]
+default_shell = "/bin/bash"

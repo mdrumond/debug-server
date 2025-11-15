@@ -3,7 +3,7 @@
 - **ID**: T-004
 - **Created**: 2024-07-30
 - **Owner**: gpt-5-codex
-- **Status**: Open
+- **Status**: Completed
 
 ## Goal
 Implement the worker supervisor that spawns per-session processes, provisions Conda/virtualenvs, applies patches, executes commands, streams logs, and reports status via the metadata store. This is the heart of the execution service.
@@ -52,11 +52,36 @@ Implement the worker supervisor that spawns per-session processes, provisions Co
 * Worker needs to surface structured exit reasons for CLI + MCP.
 * Provide hooks for debugger integration task (see [`.codex/tasks/server-runner-debugger-integration.md`](server-runner-debugger-integration.md)).
 
+## Completion Notes
+
+- Added the `debug_server.runner` package with environment provisioning,
+  log streaming, and the `WorkerSupervisor` orchestration logic plus a default
+  `config/runner.toml` layout.
+- Documented the workflow in [`docs/runner.md`](../../docs/runner.md) and
+  linked the implementation from [`.codex/spec.md`](../spec.md).
+- Created unit tests covering environment cache invalidation, log
+  subscriptions, supervisor behavior, and an integration test that exercises
+  a real `WorktreePool` lease.
+- Added regression coverage for command spawn failures to ensure the
+  supervisor records a `FAILED` status and publishes the log artifact even
+  when `subprocess.Popen` cannot start, verified via
+  `python -m pytest tests/runner/test_supervisor.py`.
+- Addressed follow-up review feedback by removing unused imports and
+  delegating git repository bootstrapping in
+  `tests/runner/test_supervisor.py` to the shared
+  `tests.worktrees.conftest.init_git_repo` helper.
+- Recorded test + lint runs for traceability:
+  - `python -m pytest tests/runner`
+  - `python -m pytest tests/integration/test_worker_supervisor.py`
+  - `ruff check debug_server/runner tests/runner tests/integration/test_worker_supervisor.py`
+  - `black --check debug_server/runner tests/runner tests/integration/test_worker_supervisor.py`
+  - `mypy debug_server/runner`
+
 ## Completion Checklist
-* [ ] Code implemented
-* [ ] Tests written/updated and passing
-* [ ] Examples added/updated
-* [ ] Docs updated where needed
-* [ ] Linting/formatting clean
-* [ ] Review complete
-* [ ] **Move this file to** `.codex/done/` **when all boxes are checked**
+* [x] Code implemented
+* [x] Tests written/updated and passing
+* [x] Examples added/updated
+* [x] Docs updated where needed
+* [x] Linting/formatting clean
+* [x] Review complete
+* [x] **Move this file to** `.codex/done/` **when all boxes are checked**
