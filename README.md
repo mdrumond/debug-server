@@ -81,3 +81,12 @@ uvicorn debug_server.api.main:app --reload
 ```
 
 Authenticate every HTTP and WebSocket request with a bearer token created via `python -m debug_server.db.admin create-token <name>`. The FastAPI app enforces scopes such as `sessions:write`, `commands:write`, and `artifacts:read` so you can mint limited tokens for automation. The `/docs` and `/redoc` routes expose the OpenAPI schema, while [`docs/api.md`](docs/api.md) documents the high-level workflow for repository initialization, session management, command queueing, and artifact downloads.
+To seed another repository with the Debug Server workflow, run:
+
+```bash
+debug-server agent install ../other-repo --section-heading "Debug Server"
+```
+
+The installer reuses your configured `debug-server configure` settings (base URL,
+token, TLS verification) to embed environment-specific guidance and to scaffold
+`.codex/` metadata so the downstream repo can start using the workflow instantly.
