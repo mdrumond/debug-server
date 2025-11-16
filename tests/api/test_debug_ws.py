@@ -47,6 +47,31 @@ def test_debug_websocket_broadcast(client: TestClient, metadata_store: MetadataS
         assert event["payload"]["reason"] == "breakpoint"
 
 
+def test_debug_websocket_does_not_drop_events(
+    client: TestClient, metadata_store: MetadataStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    session_id, token = _prepare_session(metadata_store)
+    broker: DebugBroker = client.app.state.context.debug_broker
+    broker.publish(session_id, "history", {"seq": 1})
+
+    original_subscribe_with_history = broker.subscribe_with_history
+
+    def _subscribe_with_mid_event(session: str):
+        queue, loop, unsubscribe, history = original_subscribe_with_history(session)
+        broker.publish(session, "mid", {"seq": 2})
+        return queue, loop, unsubscribe, history
+
+    monkeypatch.setattr(broker, "subscribe_with_history", _subscribe_with_mid_event)
+
+    with client.websocket_connect(
+        f"/sessions/{session_id}/debug", headers=_auth_header(token)
+    ) as websocket:
+        history = websocket.receive_json()
+        assert history["kind"] == "history"
+        mid = websocket.receive_json()
+        assert mid["kind"] == "mid"
+
+
 def test_debug_websocket_requires_session(
     client: TestClient, metadata_store: MetadataStore
 ) -> None:

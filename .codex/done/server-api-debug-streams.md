@@ -73,3 +73,5 @@ Expose WebSocket endpoints and REST hooks that let clients open debugger session
   - `black debug_server/api tests/api`
   - `mypy debug_server/api/routers debug_server/api/streams.py`
   - `python -m pytest`
+- Updated WebSocket routers to subscribe before replaying history so in-flight debug or log events are not dropped when clients connect during active sessions.
+- Added regression tests to ensure mid-connection events are delivered for debug and log streams.

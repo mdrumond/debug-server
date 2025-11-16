@@ -35,6 +35,12 @@ class DebugEvent:
 
 LogSubscription = tuple[asyncio.Queue[LogEvent | None], AbstractEventLoop, Callable[[], None]]
 DebugSubscription = tuple[asyncio.Queue[DebugEvent | None], AbstractEventLoop, Callable[[], None]]
+LogSubscriptionWithHistory = tuple[
+    asyncio.Queue[LogEvent | None], AbstractEventLoop, Callable[[], None], list[LogEvent]
+]
+DebugSubscriptionWithHistory = tuple[
+    asyncio.Queue[DebugEvent | None], AbstractEventLoop, Callable[[], None], list[DebugEvent]
+]
 
 
 class LogManager:
@@ -75,6 +81,22 @@ class LogManager:
 
         return queue, loop, _unsubscribe
 
+    def subscribe_with_history(self, session_id: str) -> LogSubscriptionWithHistory:
+        loop = asyncio.get_event_loop()
+        queue: asyncio.Queue[LogEvent | None] = asyncio.Queue()
+        with self._lock:
+            history = list(self._history.get(session_id, []))
+            self._subscribers[session_id].append((queue, loop))
+
+        def _unsubscribe() -> None:
+            with self._lock:
+                subscribers = self._subscribers.get(session_id)
+                if subscribers and (queue, loop) in subscribers:
+                    subscribers.remove((queue, loop))
+            loop.call_soon_threadsafe(queue.put_nowait, None)
+
+        return queue, loop, _unsubscribe, history
+
 
 class DebugBroker:
     """Fan-out channel for debugger control and events."""
@@ -114,5 +136,28 @@ class DebugBroker:
 
         return queue, loop, _unsubscribe
 
+    def subscribe_with_history(self, session_id: str) -> DebugSubscriptionWithHistory:
+        loop = asyncio.get_event_loop()
+        queue: asyncio.Queue[DebugEvent | None] = asyncio.Queue()
+        with self._lock:
+            history = list(self._history.get(session_id, []))
+            self._subscribers[session_id].append((queue, loop))
 
-__all__ = ["DebugBroker", "DebugEvent", "LogEvent", "LogManager"]
+        def _unsubscribe() -> None:
+            with self._lock:
+                subscribers = self._subscribers.get(session_id)
+                if subscribers and (queue, loop) in subscribers:
+                    subscribers.remove((queue, loop))
+            loop.call_soon_threadsafe(queue.put_nowait, None)
+
+        return queue, loop, _unsubscribe, history
+
+
+__all__ = [
+    "DebugBroker",
+    "DebugEvent",
+    "LogEvent",
+    "LogManager",
+    "DebugSubscriptionWithHistory",
+    "LogSubscriptionWithHistory",
+]

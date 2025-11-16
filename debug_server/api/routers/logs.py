@@ -31,10 +31,9 @@ async def stream_logs(websocket: WebSocket, session_id: str) -> None:
         return
     await websocket.accept()
     log_manager = _get_log_manager(context)
-    history = log_manager.history(session_id)
+    queue, _, unsubscribe, history = log_manager.subscribe_with_history(session_id)
     for event in history:
         await websocket.send_json(_serialize_event(event))
-    queue, _, unsubscribe = log_manager.subscribe(session_id)
     try:
         while True:
             queue_event = await queue.get()

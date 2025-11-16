@@ -34,10 +34,9 @@ async def debug_stream(websocket: WebSocket, session_id: str) -> None:
         return
     await websocket.accept()
     broker = _get_debug_broker(context)
-    history = broker.history(session_id)
+    queue, _, unsubscribe, history = broker.subscribe_with_history(session_id)
     for event in history:
         await websocket.send_json(_serialize_event(event, session_id))
-    queue, _, unsubscribe = broker.subscribe(session_id)
     try:
         while True:
             message_task = asyncio.create_task(websocket.receive_json())
