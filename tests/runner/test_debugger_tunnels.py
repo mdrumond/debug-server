@@ -10,7 +10,7 @@ def test_tunnel_registration(metadata_store: MetadataStore) -> None:
     assert tunnel.host == "127.0.0.1"
     assert tunnel.port > 0
     assert tunnel.token
-    assert tunnel.uri.startswith("ws://127.0.0.1:")
+    assert tunnel.uri == f"tcp://{tunnel.host}:{tunnel.port}"
 
     state = manager.get_state("sess-2")
     assert state is not None

@@ -52,6 +52,11 @@ Extend the runner to launch debug sessions via `debugpy`, `gdb`, and `lldb`, exp
 * Provide fallback when host lacks native debuggers by surfacing clear errors.
 * Coordinate port allocation with CLI + MCP so clients can attach reliably.
 
+## Updates
+- Adjusted debugger tunnel metadata to publish TCP URIs that match the adapters' raw socket listeners, preventing clients from
+  attempting WebSocket upgrades on unavailable routes.
+- Tests: `tests/runner/test_debugger_tunnels.py`.
+
 ## Completion Checklist
 * [x] Code implemented
 * [x] Tests written/updated and passing — `tests/runner/test_debugpy_adapter.py`, `tests/runner/test_debugger_tunnels.py`

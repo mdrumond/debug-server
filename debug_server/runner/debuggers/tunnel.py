@@ -23,7 +23,7 @@ class DebuggerTunnel:
 
     @property
     def uri(self) -> str:
-        return f"ws://{self.host}:{self.port}/debug/{self.session_id}/{self.kind}"
+        return f"tcp://{self.host}:{self.port}"
 
     def to_payload(self) -> dict[str, str | int]:
         return {

@@ -53,8 +53,8 @@ websocat -H "Authorization: Bearer $TOKEN" ws://localhost:8000/sessions/$SESSION
 - **Adapters:** `debugpy` for Python modules/scripts, `gdbserver` for GNU toolchains, and `lldb-server` for LLDB targets.
 - **Port discovery:** Each launch allocates an ephemeral port and stores it in the session's debugger metadata along with a
   random bearer token.
-- **Attach URIs:** The runner encodes the full WebSocket URI and token in the debugger metadata payload. Clients should request
-  the session metadata before connecting so they can forward ports or open IDE tunnels.
+- **Attach URIs:** The runner records a TCP URI (e.g., `tcp://127.0.0.1:12345`) and bearer token in the debugger metadata
+  payload. Clients should request the session metadata before connecting so they can forward ports or open IDE tunnels.
 - **Environment hints:** Commands launched under a debugger inherit `DEBUG_SESSION_TOKEN` and `DEBUG_SESSION_URI` to simplify
   adapter-side authentication.
 
