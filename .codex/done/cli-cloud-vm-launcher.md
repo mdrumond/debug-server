@@ -74,3 +74,4 @@ Provide an optional CLI feature (e.g., `debug-cli cloud up`) that provisions a V
 - New tests cover the guardrails, tfvars emission, encrypted state, Terraform template presence, and Terraform invoker error/success paths.
 - Hardened encrypted state storage with PBKDF2-derived Fernet keys and clarified Terraform module env/port handling.
 - Follow-up tightened encryption (Fernet), path/port validation, Terraform output handling, and documentation for operator key management.
+- Added per-state salt envelopes for PBKDF2-derived keys, consolidated tfvars reconstruction helpers, and added Terraform-side port mapping validation alongside updated key management docs.

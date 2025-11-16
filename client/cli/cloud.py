@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import base64
+import binascii
 import json
 import os
 import re
@@ -117,13 +118,13 @@ class EncryptedStateStore:
     """Persist per-operator state with symmetric encryption."""
 
     _KDF_ITERATIONS = 390_000
-    _KDF_SALT = b"debug-server-operator-state"
+    _LEGACY_KDF_SALT = b"debug-server-operator-state"
 
     def __init__(self, base_dir: Path | None = None) -> None:
         self.base_dir = base_dir or _config_dir()
         self.base_dir.mkdir(parents=True, exist_ok=True)
 
-    def _cipher(self) -> Fernet:
+    def _cipher(self, *, salt: bytes) -> Fernet:
         raw = os.environ.get(_OPERATOR_KEY_ENV)
         if not raw:
             raise click.UsageError(
@@ -133,30 +134,73 @@ class EncryptedStateStore:
         kdf = PBKDF2HMAC(
             algorithm=hashes.SHA256(),
             length=32,
-            salt=self._KDF_SALT,
+            salt=salt,
             iterations=self._KDF_ITERATIONS,
         )
         key_material = kdf.derive(password)
         fernet_key = base64.urlsafe_b64encode(key_material)
         return Fernet(fernet_key)
 
+    def _decode_envelope(self, path: Path) -> tuple[bytes, bytes]:
+        """Return (salt, ciphertext) from the on-disk envelope.
+
+        Legacy files consist solely of ciphertext encrypted with a shared salt;
+        those are supported for backward compatibility.
+        """
+
+        raw = path.read_bytes()
+        try:
+            decoded = json.loads(raw.decode("utf-8"))
+        except (UnicodeDecodeError, json.JSONDecodeError):
+            return self._LEGACY_KDF_SALT, raw
+
+        if not isinstance(decoded, dict):
+            raise click.UsageError(
+                "Failed to decrypt state. Ensure DEBUG_SERVER_OPERATOR_KEY matches the key used during 'cloud up'. "
+                "If the key is correct, the state file may be corrupted."
+            )
+
+        salt_b64 = decoded.get("salt")
+        ciphertext = decoded.get("ciphertext")
+        if not isinstance(salt_b64, str) or not isinstance(ciphertext, str):
+            raise click.UsageError(
+                "Failed to decrypt state. Ensure DEBUG_SERVER_OPERATOR_KEY matches the key used during 'cloud up'. "
+                "If the key is correct, the state file may be corrupted."
+            )
+
+        try:
+            salt = base64.urlsafe_b64decode(salt_b64)
+        except binascii.Error as exc:
+            raise click.UsageError(
+                "Failed to decrypt state. Ensure DEBUG_SERVER_OPERATOR_KEY matches the key used during 'cloud up'. "
+                "If the key is correct, the state file may be corrupted."
+            ) from exc
+
+        return salt, ciphertext.encode("utf-8")
+
     def save(self, name: str, payload: dict[str, object]) -> Path:
-        cipher = self._cipher()
+        salt = os.urandom(16)
+        cipher = self._cipher(salt=salt)
         data = json.dumps(payload, indent=2).encode("utf-8")
         encrypted = cipher.encrypt(data)
+        envelope = {
+            "salt": base64.urlsafe_b64encode(salt).decode("ascii"),
+            "ciphertext": encrypted.decode("utf-8"),
+        }
         path = self.base_dir / f"{name}.json.enc"
-        path.write_bytes(encrypted)
+        path.write_text(json.dumps(envelope, indent=2), encoding="utf-8")
         return path
 
     def load(self, name: str) -> dict[str, object]:
         path = self.base_dir / f"{name}.json.enc"
         if not path.exists():
             raise click.UsageError(f"No state stored for stack '{name}'.")
-        cipher = self._cipher()
+        salt, ciphertext = self._decode_envelope(path)
+        cipher = self._cipher(salt=salt)
         try:
-            decrypted = cipher.decrypt(path.read_bytes())
+            decrypted = cipher.decrypt(ciphertext)
             parsed = json.loads(decrypted.decode("utf-8"))
-        except (InvalidToken, json.JSONDecodeError, base64.binascii.Error) as exc:
+        except (InvalidToken, json.JSONDecodeError, binascii.Error) as exc:
             raise click.UsageError(
                 "Failed to decrypt state. Ensure DEBUG_SERVER_OPERATOR_KEY matches the key used during "
                 "'cloud up'. If the key is correct, the state file may be corrupted."
@@ -187,6 +231,25 @@ def _parse_env_entries(entries: Iterable[str]) -> dict[str, str]:
         key, value = entry.split("=", 1)
         env[key.strip()] = value
     return env
+
+
+def _restore_inputs_from_state(state: dict[str, object], stack_name: str) -> TerraformInputs:
+    provider = _validate_provider(str(state.get("provider", "")))
+    docker_host = str(state.get("docker_host", ""))
+    app_image = str(state.get("app_image", ""))
+    app_ports_raw = state.get("app_ports", [])
+    env_raw = state.get("app_env", {})
+    app_ports = [str(port) for port in app_ports_raw] if isinstance(app_ports_raw, list) else []
+    app_env = {str(k): str(v) for k, v in env_raw.items()} if isinstance(env_raw, dict) else {}
+    return _build_inputs(
+        provider=provider,
+        stack_name=stack_name,
+        docker_host=docker_host,
+        app_image=app_image,
+        app_ports=app_ports,
+        env=app_env,
+        token=cast(str | None, state.get("token")),
+    )
 
 
 def _parse_ports(entries: Iterable[str]) -> list[str]:
@@ -372,22 +435,7 @@ def cloud_destroy(stack_name: str, dry_run: bool, stack_dir: Path | None = None)
         )
     if not tfvars_path.exists():
         click.echo("tfvars file missing; re-rendering from stored state.")
-        app_ports_raw = state.get("app_ports", [])
-        env_raw = state.get("app_env", {})
-        app_ports = [str(port) for port in app_ports_raw] if isinstance(app_ports_raw, list) else []
-        app_env = {str(k): str(v) for k, v in env_raw.items()} if isinstance(env_raw, dict) else {}
-        provider = _validate_provider(str(state.get("provider", "")))
-        docker_host = str(state.get("docker_host", ""))
-        app_image = str(state.get("app_image", ""))
-        inputs = _build_inputs(
-            provider=provider,
-            stack_name=stack_name,
-            docker_host=docker_host,
-            app_image=app_image,
-            app_ports=app_ports,
-            env=app_env,
-            token=cast(str | None, state.get("token")),
-        )
+        inputs = _restore_inputs_from_state(state, stack_name)
         _render_tfvars_file(tfvars_path, inputs)
 
     if dry_run:

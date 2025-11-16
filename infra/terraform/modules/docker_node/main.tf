@@ -28,6 +28,22 @@ variable "app_ports" {
   description = "List of port mappings in host:container format"
   type        = list(string)
   default     = []
+
+  validation {
+    condition = alltrue([
+      for mapping in var.app_ports : (
+        length(split(":", mapping)) == 2
+        && can(tonumber(split(":", mapping)[0]))
+        && can(tonumber(split(":", mapping)[1]))
+        && tonumber(split(":", mapping)[0]) >= 1
+        && tonumber(split(":", mapping)[0]) <= 65535
+        && tonumber(split(":", mapping)[1]) >= 1
+        && tonumber(split(":", mapping)[1]) <= 65535
+      )
+    ])
+
+    error_message = "Each port mapping must be HOST:CONTAINER with integer ports in the range 1-65535."
+  }
 }
 
 variable "app_env" {

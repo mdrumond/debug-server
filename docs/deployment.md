@@ -55,8 +55,9 @@ existing stacks.
 > you lose or change this key, any previously stored state under `~/.debug-server/cloud/`
 > will become inaccessible and cannot be recovered. This may result in loss of stack
 > metadata and require manual recreation of stacks. Always keep your operator key safe and
-> consistent across sessions. Key rotation is not currently supported; to change your key,
-> you must manually migrate or re-create your state.
+> consistent across sessions. Each state file carries a unique salt for PBKDF2 key
+> derivation, but the passphrase must stay the same. Key rotation is not currently
+> supported; to change your key, you must manually migrate or re-create your state.
 
 ## Human-only guardrails
 

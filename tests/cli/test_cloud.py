@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 import shutil
 import subprocess
@@ -74,6 +75,19 @@ def test_encrypted_store_round_trip(
     loaded = store.load("stack")
     assert loaded == {"example": True}
     assert path.exists()
+
+
+def test_encrypted_store_writes_salted_envelope(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    store = EncryptedStateStore(base_dir=tmp_path)
+    monkeypatch.setenv("DEBUG_SERVER_OPERATOR_KEY", "roundtrip")
+    path = store.save("stack", {"example": True})
+
+    envelope = json.loads(path.read_text())
+    assert "salt" in envelope and "ciphertext" in envelope
+    assert isinstance(envelope["salt"], str)
+    assert isinstance(envelope["ciphertext"], str)
 
 
 def test_terraform_invoker_runs(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
