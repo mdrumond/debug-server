@@ -336,9 +336,9 @@ def _write_agents_section(path: Path, block: str, *, force: bool) -> tuple[bool,
     else:
         new_content = block
 
-    if not existing or new_content != existing:
+    if created or new_content != existing:
         path.write_text(new_content.rstrip() + "\n", encoding="utf-8")
-        updated = True
+        updated = not created and new_content != existing
 
     return created, updated
 

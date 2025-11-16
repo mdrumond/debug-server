@@ -21,6 +21,8 @@ Implement a CLI agent install command that can seed another repository with Debu
   plus a default `.codex/SPEC.md` template consumed by the installer.
 - Documented the workflow in `docs/cli.md` and the README, and covered the new
   functionality with CliRunner-based unit tests.
+- Clarified CLI installation guidance in the templated `AGENTS.md` section and
+  corrected the update signal for newly created agent files.
 
 ## Tests & Examples
 - **Test strategy:** unit tests for CLI command and idempotency checks.

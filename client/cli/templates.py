@@ -49,9 +49,16 @@ def render_agent_installation(config: ClientConfig, heading: str) -> str:
         > This section is managed by `debug-server agent install`. Re-run the command
         > to refresh Debug Server requirements when they change upstream.
 
-        ### 1. Install the CLI
+        ### 1. Install the Debug Server CLI
+
+        You can install the CLI from the Debug Server repository or from PyPI:
+
         ```bash
-        pip install -e .
+        # From the debug-server repository:
+        pip install -e /path/to/debug-server
+
+        # Or from PyPI:
+        pip install debug-server-client
         ```
 
         ### 2. Configure defaults for this environment
