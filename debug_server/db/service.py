@@ -8,8 +8,9 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from hmac import compare_digest
+from typing import Any
 
-from sqlalchemy import and_, or_
+from sqlalchemy import and_, func, or_
 from sqlmodel import Session, select
 
 try:  # pragma: no cover - datetime.UTC shipped in Python 3.11+
@@ -74,6 +75,7 @@ class MetadataStore:
         remote_url: str,
         default_branch: str,
         description: str | None = None,
+        settings: dict[str, Any] | None = None,
     ) -> Repository:
         with self._session() as session:
             statement = select(Repository).where(Repository.name == name)
@@ -84,12 +86,15 @@ class MetadataStore:
                     remote_url=remote_url,
                     default_branch=default_branch,
                     description=description,
+                    settings=settings or {},
                 )
                 session.add(repository)
             else:
                 repository.remote_url = remote_url
                 repository.default_branch = default_branch
                 repository.description = description
+                if settings is not None:
+                    repository.settings = dict(settings)
                 repository.updated_at = datetime.now(UTC)
             session.commit()
             session.refresh(repository)
@@ -103,6 +108,10 @@ class MetadataStore:
         with self._session() as session:
             statement = select(Repository).where(Repository.name == name)
             return session.exec(statement).one_or_none()
+
+    def get_repository(self, repository_id: int) -> Repository | None:
+        with self._session() as session:
+            return session.get(Repository, repository_id)
 
     # Worktree helpers ---------------------------------------------------
     def register_worktree(
@@ -261,6 +270,24 @@ class MetadataStore:
             session.refresh(db_session)
             return db_session
 
+    def get_session(self, session_id: str) -> SessionModel | None:
+        with self._session() as session:
+            return session.get(SessionModel, session_id)
+
+    def list_sessions(
+        self,
+        *,
+        repository_id: int | None = None,
+        limit: int = 50,
+    ) -> list[SessionModel]:
+        with self._session() as session:
+            statement = select(SessionModel).order_by(SessionModel.created_at.desc())
+            if repository_id is not None:
+                statement = statement.where(SessionModel.repository_id == repository_id)
+            if limit:
+                statement = statement.limit(limit)
+            return list(session.exec(statement).all())
+
     # Command helpers ----------------------------------------------------
     def create_command(
         self,
@@ -282,6 +309,27 @@ class MetadataStore:
             session.commit()
             session.refresh(db_command)
             return db_command
+
+    def list_commands(self, session_id: str) -> list[Command]:
+        with self._session() as session:
+            statement = (
+                select(Command)
+                .where(Command.session_id == session_id)
+                .order_by(Command.sequence)
+            )
+            return list(session.exec(statement).all())
+
+    def next_command_sequence(self, session_id: str) -> int:
+        """Return the next sequence number for a session's command queue."""
+
+        with self._session() as session:
+            statement = select(func.max(Command.sequence)).where(
+                Command.session_id == session_id
+            )
+            max_sequence = session.exec(statement).first()
+            if isinstance(max_sequence, tuple):
+                max_sequence = max_sequence[0]
+            return (max_sequence if max_sequence is not None else -1) + 1
 
     def record_command_result(
         self,
@@ -339,6 +387,15 @@ class MetadataStore:
             session.refresh(artifact)
             return artifact
 
+    def list_artifacts(self, session_id: str) -> list[Artifact]:
+        with self._session() as session:
+            statement = select(Artifact).where(Artifact.session_id == session_id)
+            return list(session.exec(statement).all())
+
+    def get_artifact(self, artifact_id: int) -> Artifact | None:
+        with self._session() as session:
+            return session.get(Artifact, artifact_id)
+
     # Auth helpers -------------------------------------------------------
     def create_token(
         self,
@@ -377,6 +434,22 @@ class MetadataStore:
             if expired or revoked:
                 return None
             record.last_used_at = now
+            session.add(record)
+            session.commit()
+            session.refresh(record)
+            return record
+
+    def list_tokens(self) -> list[AuthToken]:
+        with self._session() as session:
+            statement = select(AuthToken).order_by(AuthToken.created_at)
+            return list(session.exec(statement).all())
+
+    def revoke_token(self, token_id: int) -> AuthToken:
+        with self._session() as session:
+            record = session.get(AuthToken, token_id)
+            if record is None:
+                raise MetadataError("Unknown token")
+            record.revoked_at = datetime.now(UTC)
             session.add(record)
             session.commit()
             session.refresh(record)
