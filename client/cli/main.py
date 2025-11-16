@@ -10,6 +10,7 @@ from pathlib import Path
 import click
 from click.core import ParameterSource
 
+from client.cli.cloud import cloud
 from client.cli.templates import (
     AGENT_SENTINEL_END,
     AGENT_SENTINEL_START,
@@ -128,6 +129,9 @@ def artifact() -> None:
 @app.group()
 def agent() -> None:
     """Agent workflow helpers."""
+
+
+app.add_command(cloud)
 
 
 @server.command("init")

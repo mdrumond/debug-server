@@ -3,7 +3,7 @@
 - **ID**: T-011
 - **Created**: 2024-08-01
 - **Owner**: gpt-5-codex
-- **Status**: Open
+- **Status**: Completed
 
 ## Goal
 Provide an optional CLI feature (e.g., `debug-cli cloud up`) that provisions a VM via Terraform, bootstraps Docker, and starts the debug server container remotely using a provider-agnostic `docker_node` module. The CLI flow must remain compatible with the API/runner plans in [`.codex/tasks/server-api-lifecycle-and-auth.md`](server-api-lifecycle-and-auth.md), [`.codex/tasks/server-api-debug-streams.md`](server-api-debug-streams.md), and [`.codex/tasks/server-runner-worker-engine.md`](server-runner-worker-engine.md) so that once the VM is online, it registers with the same lifecycle and debugger orchestration endpoints. **This capability must be explicitly disabled for autonomous agents**—only human operators with workstation credentials may execute the cloud launcher commands, and the CLI must enforce this restriction via identity checks/feature flags.
@@ -59,10 +59,16 @@ Provide an optional CLI feature (e.g., `debug-cli cloud up`) that provisions a V
 * Deny-by-default posture for agents: CI and bot contexts must not be allowed to start remote infrastructure.
 
 ## Completion Checklist
-* [ ] Code implemented
-* [ ] Tests written/updated and passing
-* [ ] Examples added/updated
-* [ ] Docs updated where needed
-* [ ] Linting/formatting clean
-* [ ] Review complete
-* [ ] **Move this file to** `.codex/done/` **when all boxes are checked**
+* [x] Code implemented
+* [x] Tests written/updated and passing (`tests/cli/test_cloud.py`, `tests/infra/test_terraform_templates.py`)
+* [x] Examples added/updated (CLI snippets in docs)
+* [x] Docs updated where needed (README, docs/cli.md, docs/deployment.md, .codex/spec.md)
+* [x] Linting/formatting clean
+* [x] Review complete
+* [x] **Move this file to** `.codex/done/` **when all boxes are checked**
+
+## Completion Notes
+- Added `client/cli/cloud.py` with human-only guardrails, Terraform tfvars rendering, and encrypted state handling.
+- Created Terraform Docker module plus Hetzner/Contabo stack entrypoints under `infra/terraform/`.
+- Documented operator workflow and guardrails in `docs/deployment.md`, updated CLI and spec docs, and referenced the new flow from the README.
+- New tests cover the guardrails, tfvars emission, encrypted state, and Terraform template presence.

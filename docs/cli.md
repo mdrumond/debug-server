@@ -69,3 +69,29 @@ links back to this repository's documentation, and scaffolds `.codex/` metadata
 folders so the downstream project can start capturing tasks immediately. It uses
 your configured base URL and TLS preferences; set them with `debug-server
 configure` or environment variables before running the installer.
+
+## Cloud launcher (human operators only)
+
+The CLI can render Terraform variables and, when Terraform is available, launch
+the debug server container on a remote Docker host.
+
+```bash
+# mark the session as interactive and provide a state-encryption key
+export DEBUG_SERVER_OPERATOR_ALLOW=1
+export DEBUG_SERVER_OPERATOR_KEY="workstation-secret"
+
+debug-server cloud up \
+  --provider hetzner \
+  --docker-host tcp://10.0.0.5:2376 \
+  --image ghcr.io/org/debug-server:latest \
+  --env ENV=prod \
+  --port 8000:8000
+
+# tear everything down once finished
+debug-server cloud destroy --stack-name debug-cloud --apply
+```
+
+Automation markers such as `CI` or `DEBUG_SERVER_AGENT` block the command by
+default to prevent unintended infrastructure launches. State for each stack is
+encrypted and written to `~/.debug-server/cloud/` using
+`DEBUG_SERVER_OPERATOR_KEY`.

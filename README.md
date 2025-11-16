@@ -70,6 +70,7 @@ debug-server configure --base-url https://debug.example.com --token sk-xxx
 ```
 
 Run `debug-server --help` or see [`docs/cli.md`](docs/cli.md) for command walkthroughs covering repository initialization, session creation, log streaming, debugger control, and artifact downloads.
+Cloud launchers for human operators are documented in [`docs/deployment.md`](docs/deployment.md), including the Terraform stacks and encryption guardrails used to protect remote hosts.
 
 ## FastAPI Service
 
