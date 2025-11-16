@@ -10,6 +10,12 @@ from pathlib import Path
 import click
 from click.core import ParameterSource
 
+from client.cli.templates import (
+    AGENT_SENTINEL_END,
+    AGENT_SENTINEL_START,
+    DEFAULT_SPEC_TEMPLATE,
+    render_agent_installation,
+)
 from client.config import ClientConfig, load_client_config, save_client_config
 from client.sdk import (
     DebugActionRequest,
@@ -117,6 +123,11 @@ def session() -> None:
 @app.group()
 def artifact() -> None:
     """Artifact utilities."""
+
+
+@app.group()
+def agent() -> None:
+    """Agent workflow helpers."""
 
 
 @server.command("init")
@@ -255,6 +266,101 @@ def artifact_download(state: CLIState, session_id: str, artifact_id: str, output
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_bytes(content)
     click.echo(f"Downloaded {metadata.filename} ({metadata.size} bytes) to {output}.")
+
+
+@agent.command("install")
+@click.argument(
+    "repository",
+    default=Path("."),
+    required=False,
+    type=click.Path(file_okay=False, resolve_path=True, path_type=Path),
+)
+@click.option("--force", is_flag=True, help="Rewrite AGENTS.md with only the Debug Server section.")
+@click.option(
+    "--section-heading",
+    default="Debug Server Integration",
+    show_default=True,
+    help="Heading applied to the inserted AGENTS.md section.",
+)
+@click.pass_obj
+def agent_install(
+    state: CLIState,
+    repository: Path,
+    force: bool,
+    section_heading: str,
+) -> None:
+    """Seed AGENTS.md and .codex scaffolding for Debug Server workflows."""
+
+    if not repository.exists():
+        raise click.BadParameter(f"Repository path {repository} does not exist.")
+    if not repository.is_dir():
+        raise click.BadParameter("Repository path must be a directory.")
+
+    codex_created = _ensure_codex_scaffold(repository)
+    block = render_agent_installation(state.settings, section_heading)
+    agents_path = repository / "AGENTS.md"
+    created_agents, updated_agents = _write_agents_section(agents_path, block, force=force)
+
+    if created_agents:
+        click.echo(f"Created {agents_path}.")
+    elif updated_agents:
+        click.echo(f"Updated {agents_path}.")
+    else:
+        click.echo(f"No changes required for {agents_path}.")
+
+    if codex_created:
+        click.echo("Created Debug Server scaffolding:")
+        for entry in codex_created:
+            click.echo(f"  - {entry}")
+
+
+def _write_agents_section(path: Path, block: str, *, force: bool) -> tuple[bool, bool]:
+    """Ensure the Debug Server section exists in AGENTS.md."""
+
+    created = False
+    updated = False
+    existing = ""
+    if path.exists():
+        existing = path.read_text(encoding="utf-8")
+    else:
+        created = True
+
+    if AGENT_SENTINEL_START in existing and AGENT_SENTINEL_END in existing:
+        start = existing.index(AGENT_SENTINEL_START)
+        end = existing.index(AGENT_SENTINEL_END) + len(AGENT_SENTINEL_END)
+        new_content = existing[:start] + block + existing[end:]
+    elif force:
+        new_content = block
+    elif existing.strip():
+        new_content = existing.rstrip() + "\n\n" + block
+    else:
+        new_content = block
+
+    if created or new_content != existing:
+        path.write_text(new_content.rstrip() + "\n", encoding="utf-8")
+        updated = not created and new_content != existing
+
+    return created, updated
+
+
+def _ensure_codex_scaffold(repository: Path) -> list[str]:
+    """Create .codex metadata directories and SPEC.md if missing."""
+
+    created: list[str] = []
+    codex = repository / ".codex"
+    tasks = codex / "tasks"
+    done = codex / "done"
+    for path in (codex, tasks, done):
+        if not path.exists():
+            path.mkdir(parents=True, exist_ok=True)
+            created.append(str(path.relative_to(repository)))
+
+    spec = codex / "SPEC.md"
+    if not spec.exists():
+        spec.write_text(DEFAULT_SPEC_TEMPLATE, encoding="utf-8")
+        created.append(str(spec.relative_to(repository)))
+
+    return created
 
 
 def _stream_logs(

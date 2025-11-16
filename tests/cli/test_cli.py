@@ -18,8 +18,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-cli_main = importlib.import_module("client.cli.main")
-
+from client.cli.templates import AGENT_SENTINEL_START  # noqa: E402
 from client.sdk.models import (  # noqa: E402
     ArtifactMetadata,
     DebugActionResponse,
@@ -29,6 +28,8 @@ from client.sdk.models import (  # noqa: E402
     Session,
     SessionCreateRequest,
 )
+
+cli_main = importlib.import_module("client.cli.main")
 
 
 class DummyClient:
@@ -188,3 +189,78 @@ def test_artifact_download_writes_file(monkeypatch, tmp_path):
     assert result.exit_code == 0, result.stdout
     assert output.read_bytes() == b"hello-world!"
     assert dummy.artifact_requested == ("sess-123", "art-7")
+
+
+def test_agent_install_scaffolds_agents(tmp_path):
+    runner = CliRunner()
+    env = {"DEBUG_SERVER_HOME": str(tmp_path / "home")}
+    repo = tmp_path / "repo"
+    repo.mkdir()
+
+    result = runner.invoke(cli_main.app, ["agent", "install", str(repo)], env=env)
+
+    assert result.exit_code == 0, result.stdout
+    content = (repo / "AGENTS.md").read_text()
+    assert AGENT_SENTINEL_START in content
+    assert (repo / ".codex").is_dir()
+    assert (repo / ".codex/tasks").is_dir()
+    assert (repo / ".codex/done").is_dir()
+    assert (repo / ".codex/SPEC.md").exists()
+    assert ".codex/SPEC.md" in result.stdout
+
+
+def test_agent_install_is_idempotent(tmp_path):
+    runner = CliRunner()
+    env = {"DEBUG_SERVER_HOME": str(tmp_path / "home")}
+    repo = tmp_path / "repo"
+    repo.mkdir()
+
+    first = runner.invoke(cli_main.app, ["agent", "install", str(repo)], env=env)
+    assert first.exit_code == 0, first.stdout
+    before = (repo / "AGENTS.md").read_text()
+
+    second = runner.invoke(cli_main.app, ["agent", "install", str(repo)], env=env)
+
+    assert second.exit_code == 0, second.stdout
+    after = (repo / "AGENTS.md").read_text()
+    assert before == after
+
+
+def test_agent_install_updates_heading(tmp_path):
+    runner = CliRunner()
+    env = {"DEBUG_SERVER_HOME": str(tmp_path / "home")}
+    repo = tmp_path / "repo"
+    repo.mkdir()
+
+    result = runner.invoke(cli_main.app, ["agent", "install", str(repo)], env=env)
+    assert result.exit_code == 0, result.stdout
+
+    updated = runner.invoke(
+        cli_main.app,
+        ["agent", "install", str(repo), "--section-heading", "Custom"],
+        env=env,
+    )
+
+    assert updated.exit_code == 0, updated.stdout
+    content = (repo / "AGENTS.md").read_text()
+    assert "## Custom" in content
+
+
+def test_agent_install_force_replaces_existing(tmp_path):
+    runner = CliRunner()
+    env = {"DEBUG_SERVER_HOME": str(tmp_path / "home")}
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    agents = repo / "AGENTS.md"
+    agents.write_text("legacy instructions")
+
+    result = runner.invoke(
+        cli_main.app,
+        ["agent", "install", str(repo), "--force"],
+        env=env,
+    )
+
+    assert result.exit_code == 0, result.stdout
+    content = agents.read_text()
+    assert "legacy instructions" not in content
+    assert AGENT_SENTINEL_START in content
