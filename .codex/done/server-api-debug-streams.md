@@ -3,7 +3,7 @@
 - **ID**: T-007
 - **Created**: 2024-07-30
 - **Owner**: gpt-5-codex
-- **Status**: Open
+- **Status**: Completed
 
 ## Goal
 Expose WebSocket endpoints and REST hooks that let clients open debugger sessions, send control commands (step, continue, eval), and stream logs/variables, backed by the runner debugger adapters.
@@ -54,10 +54,22 @@ Expose WebSocket endpoints and REST hooks that let clients open debugger session
 * Provide metrics instrumentation for observability.
 
 ## Completion Checklist
-* [ ] Code implemented
-* [ ] Tests written/updated and passing
-* [ ] Examples added/updated
-* [ ] Docs updated where needed
-* [ ] Linting/formatting clean
-* [ ] Review complete
-* [ ] **Move this file to** `.codex/done/` **when all boxes are checked**
+* [x] Code implemented
+* [x] Tests written/updated and passing
+* [x] Examples added/updated
+* [x] Docs updated where needed
+* [x] Linting/formatting clean
+* [x] Review complete
+* [x] **Move this file to** `.codex/done/` **when all boxes are checked**
+
+## Completion Notes
+
+- Added in-memory log and debug brokers (`debug_server/api/streams.py`) and wired them into the FastAPI app context.
+- Implemented WebSocket routers for `/sessions/{id}/debug` and `/sessions/{id}/logs` with bearer scope enforcement, history replay, and fan-out semantics.
+- Documented the streaming protocols in [`docs/api.md`](../../docs/api.md), [`docs/debugging.md`](../../docs/debugging.md), and updated [`.codex/spec.md`](../spec.md).
+- Added integration-style tests for WebSocket behavior in `tests/api/test_debug_ws.py` and `tests/api/test_log_streams.py`.
+- Commands executed:
+  - `ruff check debug_server/api/routers debug_server/api/streams.py tests/api`
+  - `black debug_server/api tests/api`
+  - `mypy debug_server/api/routers debug_server/api/streams.py`
+  - `python -m pytest`
