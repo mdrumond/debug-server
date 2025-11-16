@@ -54,3 +54,18 @@ debug-server artifact download 01H..XYZ coverage-xml --output ~/Downloads/covera
 ```
 
 Use `debug-server --help` or `debug-server <group> --help` for option details.
+
+### Seed another repository with Debug Server instructions
+
+Once your CLI is configured, you can share the Debug Server workflow with
+additional repositories:
+
+```bash
+debug-server agent install ../partner-repo --section-heading "Debug Server Workflow"
+```
+
+The command locates (or creates) `AGENTS.md`, inserts an idempotent block that
+links back to this repository's documentation, and scaffolds `.codex/` metadata
+folders so the downstream project can start capturing tasks immediately. It uses
+your configured base URL and TLS preferences; set them with `debug-server
+configure` or environment variables before running the installer.

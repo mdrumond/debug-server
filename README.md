@@ -70,3 +70,13 @@ debug-server configure --base-url https://debug.example.com --token sk-xxx
 ```
 
 Run `debug-server --help` or see [`docs/cli.md`](docs/cli.md) for command walkthroughs covering repository initialization, session creation, log streaming, debugger control, and artifact downloads.
+
+To seed another repository with the Debug Server workflow, run:
+
+```bash
+debug-server agent install ../other-repo --section-heading "Debug Server"
+```
+
+The installer reuses your configured `debug-server configure` settings (base URL,
+token, TLS verification) to embed environment-specific guidance and to scaffold
+`.codex/` metadata so the downstream repo can start using the workflow instantly.
