@@ -1,7 +1,9 @@
 # Debugger and Log Streaming Protocols
 
 The FastAPI service exposes WebSocket routes that let clients attach debuggers and follow session logs in real time. These
-protocols are intentionally lightweight so they can be reused by the CLI, MCP server, and future IDE integrations.
+protocols are intentionally lightweight so they can be reused by the CLI, MCP server, and future IDE integrations. The
+runner now provisions debugger tunnels for Python (`debugpy`) and native binaries (`gdbserver`/`lldb-server`) so clients
+can attach over an authenticated channel without guessing ports.
 
 ## Authentication
 
@@ -45,6 +47,16 @@ websocat -H "Authorization: Bearer $TOKEN" ws://localhost:8000/sessions/$SESSION
 ```bash
 websocat -H "Authorization: Bearer $TOKEN" ws://localhost:8000/sessions/$SESSION_ID/debug
 ```
+
+## Debugger Tunnels
+
+- **Adapters:** `debugpy` for Python modules/scripts, `gdbserver` for GNU toolchains, and `lldb-server` for LLDB targets.
+- **Port discovery:** Each launch allocates an ephemeral port and stores it in the session's debugger metadata along with a
+  random bearer token.
+- **Attach URIs:** The runner encodes the full WebSocket URI and token in the debugger metadata payload. Clients should request
+  the session metadata before connecting so they can forward ports or open IDE tunnels.
+- **Environment hints:** Commands launched under a debugger inherit `DEBUG_SESSION_TOKEN` and `DEBUG_SESSION_URI` to simplify
+  adapter-side authentication.
 
 ## Error Handling
 

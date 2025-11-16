@@ -26,6 +26,7 @@ from .models import (
     AuthToken,
     Command,
     CommandStatus,
+    DebuggerState,
     Repository,
     SessionStatus,
     Worktree,
@@ -287,6 +288,44 @@ class MetadataStore:
             if limit:
                 statement = statement.limit(limit)
             return list(session.exec(statement).all())
+
+    # Debugger helpers ---------------------------------------------------
+    def get_debugger_state(self, session_id: str) -> DebuggerState | None:
+        with self._session() as session:
+            statement = select(DebuggerState).where(DebuggerState.session_id == session_id)
+            return session.exec(statement).one_or_none()
+
+    def update_debugger_state(
+        self,
+        session_id: str,
+        *,
+        last_event: str | None | object = _UNSET,
+        breakpoints: list[dict[str, Any]] | None | object = _UNSET,
+        payload: dict[str, Any] | None | object = _UNSET,
+    ) -> DebuggerState:
+        with self._session() as session:
+            statement = select(DebuggerState).where(DebuggerState.session_id == session_id)
+            state = session.exec(statement).one_or_none()
+            if state is None:
+                state = DebuggerState(session_id=session_id)
+                session.add(state)
+                session.flush()
+            if last_event is not _UNSET:
+                state.last_event = last_event
+            if breakpoints is not _UNSET:
+                state.breakpoints = list(breakpoints or [])
+            if payload is not _UNSET:
+                merged = dict(state.payload)
+                if payload is None:
+                    merged = {}
+                else:
+                    merged.update(payload)
+                state.payload = merged
+            state.updated_at = datetime.now(UTC)
+            session.add(state)
+            session.commit()
+            session.refresh(state)
+            return state
 
     # Command helpers ----------------------------------------------------
     def create_command(
