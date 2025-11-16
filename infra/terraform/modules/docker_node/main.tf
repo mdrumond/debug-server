@@ -57,7 +57,10 @@ resource "docker_image" "app" {
 }
 
 locals {
-  env_with_token = merge(var.app_env, var.runner_token != "" ? { "DEBUG_SERVER_TOKEN" = var.runner_token } : {})
+  env_with_token = merge(
+    var.app_env,
+    var.runner_token != "" ? { "DEBUG_SERVER_TOKEN" = var.runner_token } : {}
+  )
 }
 
 resource "docker_container" "app" {
@@ -67,12 +70,12 @@ resource "docker_container" "app" {
   dynamic "ports" {
     for_each = var.app_ports
     content {
-      internal = tonumber(split(":", ports.value, 2)[1])
-      external = tonumber(split(":", ports.value, 2)[0])
+      internal = tonumber(split(":", ports.value)[1])
+      external = tonumber(split(":", ports.value)[0])
     }
   }
 
-  env = [for pair in local.env_with_token : "${pair.key}=${pair.value}"]
+  env = [for k, v in local.env_with_token : "${k}=${v}"]
   restart = "unless-stopped"
 }
 

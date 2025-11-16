@@ -14,6 +14,8 @@ from pathlib import Path
 from typing import cast
 
 from cryptography.fernet import Fernet, InvalidToken
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 
 import click
 
@@ -114,6 +116,9 @@ class TerraformInvoker:
 class EncryptedStateStore:
     """Persist per-operator state with symmetric encryption."""
 
+    _KDF_ITERATIONS = 390_000
+    _KDF_SALT = b"debug-server-operator-state"
+
     def __init__(self, base_dir: Path | None = None) -> None:
         self.base_dir = base_dir or _config_dir()
         self.base_dir.mkdir(parents=True, exist_ok=True)
@@ -124,8 +129,16 @@ class EncryptedStateStore:
             raise click.UsageError(
                 "Set DEBUG_SERVER_OPERATOR_KEY to encrypt/decrypt cloud session state."
             )
-        key = base64.urlsafe_b64encode(raw.encode("utf-8").ljust(32, b"0")[:32])
-        return Fernet(key)
+        password = raw.encode("utf-8")
+        kdf = PBKDF2HMAC(
+            algorithm=hashes.SHA256(),
+            length=32,
+            salt=self._KDF_SALT,
+            iterations=self._KDF_ITERATIONS,
+        )
+        key_material = kdf.derive(password)
+        fernet_key = base64.urlsafe_b64encode(key_material)
+        return Fernet(fernet_key)
 
     def save(self, name: str, payload: dict[str, object]) -> Path:
         cipher = self._cipher()
@@ -149,7 +162,10 @@ class EncryptedStateStore:
                 "'cloud up'. If the key is correct, the state file may be corrupted."
             ) from exc
         if not isinstance(parsed, dict):
-            raise click.UsageError("Stored state is corrupted or unreadable.")
+            raise click.UsageError(
+                "Failed to decrypt state. Ensure DEBUG_SERVER_OPERATOR_KEY matches the key used during "
+                "'cloud up'. If the key is correct, the state file may be corrupted."
+            )
         return cast(dict[str, object], parsed)
 
     def delete(self, name: str) -> None:

@@ -71,5 +71,6 @@ Provide an optional CLI feature (e.g., `debug-cli cloud up`) that provisions a V
 - Added `client/cli/cloud.py` with human-only guardrails, Terraform tfvars rendering, and encrypted state handling.
 - Created Terraform Docker module plus Hetzner/Contabo stack entrypoints under `infra/terraform/`.
 - Documented operator workflow and guardrails in `docs/deployment.md`, updated CLI and spec docs, and referenced the new flow from the README.
-- New tests cover the guardrails, tfvars emission, encrypted state, and Terraform template presence.
+- New tests cover the guardrails, tfvars emission, encrypted state, Terraform template presence, and Terraform invoker error/success paths.
+- Hardened encrypted state storage with PBKDF2-derived Fernet keys and clarified Terraform module env/port handling.
 - Follow-up tightened encryption (Fernet), path/port validation, Terraform output handling, and documentation for operator key management.

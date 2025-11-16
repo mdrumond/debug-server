@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import os
+import shutil
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -8,7 +10,7 @@ import click
 from click.testing import CliRunner
 
 from client.cli import cloud
-from client.cli.cloud import EncryptedStateStore, require_human_operator
+from client.cli.cloud import EncryptedStateStore, TerraformInvoker, require_human_operator
 
 
 def test_require_human_operator_blocks_ci(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -72,3 +74,38 @@ def test_encrypted_store_round_trip(
     loaded = store.load("stack")
     assert loaded == {"example": True}
     assert path.exists()
+
+
+def test_terraform_invoker_runs(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    monkeypatch.setattr(shutil, "which", lambda _name: "terraform")
+    calls: list[tuple[list[str], Path, bool, bool]] = []
+
+    def fake_run(
+        cmd: list[str], cwd: Path, check: bool, capture_output: bool
+    ) -> subprocess.CompletedProcess[list[str]]:
+        calls.append((cmd, cwd, check, capture_output))
+        return subprocess.CompletedProcess(cmd, 0)
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+
+    invoker = TerraformInvoker(working_dir=tmp_path)
+    invoker.run("plan")
+
+    assert calls == [(["terraform", "plan"], tmp_path, True, False)]
+
+
+def test_terraform_invoker_surfaces_errors(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setattr(shutil, "which", lambda _name: "terraform")
+
+    def fake_run(
+        cmd: list[str], cwd: Path, check: bool, capture_output: bool
+    ) -> subprocess.CompletedProcess[list[str]]:
+        raise subprocess.CalledProcessError(returncode=2, cmd=cmd)
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+
+    invoker = TerraformInvoker(working_dir=tmp_path)
+    with pytest.raises(click.ClickException):
+        invoker.run("apply")
