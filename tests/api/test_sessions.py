@@ -74,9 +74,7 @@ def test_session_lifecycle_and_artifacts(
     assert cancel.status_code == 200
 
 
-def test_commands_preserve_enqueue_order(
-    client: TestClient, metadata_store: MetadataStore
-) -> None:
+def test_commands_preserve_enqueue_order(client: TestClient, metadata_store: MetadataStore) -> None:
     _create_repo(metadata_store)
     _, token_value = metadata_store.create_token(
         "runner",

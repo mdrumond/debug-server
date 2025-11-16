@@ -13,6 +13,9 @@ All requests must include an `Authorization: Bearer <token>` header. Create toke
 
 Tokens with the `admin` scope automatically satisfy any other scope check.
 
+WebSocket upgrades reuse the same bearer token flow. Pass `Authorization: Bearer <token>` in the initial handshake headers when
+connecting to streaming endpoints.
+
 ## Repository Initialization
 
 ```
@@ -62,6 +65,41 @@ http POST :8000/sessions/$SESSION_ID/commands \
 ```
 
 The service records each command in the metadata store and returns the database identifier so log processing pipelines can correlate entries.
+
+## Log Streaming
+
+```
+WEBSOCKET /sessions/{session_id}/logs
+```
+
+The log stream endpoint replays historical log lines for the session and then streams new chunks as they arrive. Messages are JSON
+objects of the form:
+
+```json
+{"stream": "stdout", "text": "line contents", "timestamp": "2024-07-30T12:00:00+00:00"}
+```
+
+Clients must provide the `sessions:read` and `artifacts:read` scopes. Example connection using `websocat`:
+
+```bash
+websocat -H "Authorization: Bearer $TOKEN" ws://localhost:8000/sessions/$SESSION_ID/logs
+```
+
+## Debugger Control
+
+```
+WEBSOCKET /sessions/{session_id}/debug
+```
+
+Debugger streams carry control commands (step, continue, evaluate) and events raised by the backing debugger adapter. Clients must
+hold the `sessions:write` scope. Each inbound message is echoed with an `ack` envelope while server-side events are emitted with
+their original `kind` field:
+
+```json
+{"session_id": "abc123", "kind": "event", "payload": {"reason": "breakpoint"}, "timestamp": "..."}
+```
+
+See [`docs/debugging.md`](debugging.md) for protocol guidance shared with the CLI and MCP client surfaces.
 
 ## Artifacts
 
