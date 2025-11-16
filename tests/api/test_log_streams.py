@@ -4,7 +4,7 @@ import pytest
 from fastapi.testclient import TestClient
 from starlette.websockets import WebSocketDisconnect
 
-from debug_server.api.streams import LogManager
+from debug_server.api.streams import LogManager, LogSubscriptionWithHistory
 from debug_server.db import MetadataStore
 
 
@@ -54,7 +54,7 @@ def test_log_websocket_does_not_drop_events(
 
     original_subscribe_with_history = log_manager.subscribe_with_history
 
-    def _subscribe_with_mid_event(session: str):
+    def _subscribe_with_mid_event(session: str) -> LogSubscriptionWithHistory:
         queue, loop, unsubscribe, history = original_subscribe_with_history(session)
         log_manager.append(session, "mid-connection line\n")
         return queue, loop, unsubscribe, history

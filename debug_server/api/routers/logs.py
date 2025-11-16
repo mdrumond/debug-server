@@ -41,6 +41,7 @@ async def stream_logs(websocket: WebSocket, session_id: str) -> None:
                 break
             await websocket.send_json(_serialize_event(queue_event))
     except WebSocketDisconnect:
+        # Client disconnected; no action needed.
         pass
     finally:
         unsubscribe()

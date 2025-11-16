@@ -48,7 +48,7 @@ websocat -H "Authorization: Bearer $TOKEN" ws://localhost:8000/sessions/$SESSION
 
 ## Error Handling
 
-- Unknown sessions yield a `404` and close the WebSocket with a policy violation code.
+- Unknown sessions close the WebSocket immediately with code 1008 (policy violation); HTTP status codes are not used after the upgrade.
 - Missing or insufficient scopes close the connection before any data is exchanged.
 
 These semantics mirror the HTTP API to keep client implementations consistent.

@@ -5,8 +5,8 @@ from typing import cast
 
 from fastapi import Request, WebSocket
 
-from debug_server.db import MetadataStore
 from debug_server.api.streams import DebugBroker, LogManager
+from debug_server.db import MetadataStore
 
 
 @dataclass(slots=True)

@@ -52,6 +52,10 @@ async def debug_stream(websocket: WebSocket, session_id: str) -> None:
                 await websocket.send_json(_serialize_event(queue_event, session_id))
             else:
                 event_task.cancel()
+                try:
+                    await event_task
+                except asyncio.CancelledError:
+                    pass
 
             if message_task in done:
                 incoming = message_task.result()
@@ -64,6 +68,10 @@ async def debug_stream(websocket: WebSocket, session_id: str) -> None:
                 )
             else:
                 message_task.cancel()
+                try:
+                    await message_task
+                except asyncio.CancelledError:
+                    pass
     except WebSocketDisconnect:
         pass
     finally:

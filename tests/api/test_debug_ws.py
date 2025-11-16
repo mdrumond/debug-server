@@ -4,7 +4,7 @@ import pytest
 from fastapi.testclient import TestClient
 from starlette.websockets import WebSocketDisconnect
 
-from debug_server.api.streams import DebugBroker
+from debug_server.api.streams import DebugBroker, DebugSubscriptionWithHistory
 from debug_server.db import MetadataStore
 
 
@@ -56,7 +56,7 @@ def test_debug_websocket_does_not_drop_events(
 
     original_subscribe_with_history = broker.subscribe_with_history
 
-    def _subscribe_with_mid_event(session: str):
+    def _subscribe_with_mid_event(session: str) -> DebugSubscriptionWithHistory:
         queue, loop, unsubscribe, history = original_subscribe_with_history(session)
         broker.publish(session, "mid", {"seq": 2})
         return queue, loop, unsubscribe, history

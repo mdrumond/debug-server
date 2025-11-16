@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import asyncio
-from asyncio import AbstractEventLoop
 from collections import defaultdict
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -33,13 +32,23 @@ class DebugEvent:
     timestamp: datetime
 
 
-LogSubscription = tuple[asyncio.Queue[LogEvent | None], AbstractEventLoop, Callable[[], None]]
-DebugSubscription = tuple[asyncio.Queue[DebugEvent | None], AbstractEventLoop, Callable[[], None]]
+LogSubscription = tuple[
+    asyncio.Queue[LogEvent | None], asyncio.AbstractEventLoop, Callable[[], None]
+]
+DebugSubscription = tuple[
+    asyncio.Queue[DebugEvent | None], asyncio.AbstractEventLoop, Callable[[], None]
+]
 LogSubscriptionWithHistory = tuple[
-    asyncio.Queue[LogEvent | None], AbstractEventLoop, Callable[[], None], list[LogEvent]
+    asyncio.Queue[LogEvent | None],
+    asyncio.AbstractEventLoop,
+    Callable[[], None],
+    list[LogEvent],
 ]
 DebugSubscriptionWithHistory = tuple[
-    asyncio.Queue[DebugEvent | None], AbstractEventLoop, Callable[[], None], list[DebugEvent]
+    asyncio.Queue[DebugEvent | None],
+    asyncio.AbstractEventLoop,
+    Callable[[], None],
+    list[DebugEvent],
 ]
 
 
@@ -49,7 +58,8 @@ class LogManager:
     def __init__(self) -> None:
         self._history: dict[str, list[LogEvent]] = defaultdict(list)
         self._subscribers: dict[
-            str, list[tuple[asyncio.Queue[LogEvent | None], AbstractEventLoop]]
+            str,
+            list[tuple[asyncio.Queue[LogEvent | None], asyncio.AbstractEventLoop]],
         ] = defaultdict(list)
         self._lock = Lock()
 
@@ -104,7 +114,8 @@ class DebugBroker:
     def __init__(self) -> None:
         self._history: dict[str, list[DebugEvent]] = defaultdict(list)
         self._subscribers: dict[
-            str, list[tuple[asyncio.Queue[DebugEvent | None], AbstractEventLoop]]
+            str,
+            list[tuple[asyncio.Queue[DebugEvent | None], asyncio.AbstractEventLoop]],
         ] = defaultdict(list)
         self._lock = Lock()
 
