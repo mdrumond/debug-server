@@ -30,11 +30,13 @@ def queue_command(
     if session is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Session not found")
     command_repr = shlex.join(payload.argv)
+    sequence = context.metadata_store.next_command_sequence(session_id)
     command = context.metadata_store.create_command(
         session_id=session_id,
         command=command_repr,
         cwd=payload.cwd,
         env=payload.env,
+        sequence=sequence,
     )
     return command_to_response(command)
 

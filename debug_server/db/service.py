@@ -10,7 +10,7 @@ from datetime import datetime, timedelta
 from hmac import compare_digest
 from typing import Any
 
-from sqlalchemy import and_, or_
+from sqlalchemy import and_, func, or_
 from sqlmodel import Session, select
 
 try:  # pragma: no cover - datetime.UTC shipped in Python 3.11+
@@ -318,6 +318,18 @@ class MetadataStore:
                 .order_by(Command.sequence)
             )
             return list(session.exec(statement).all())
+
+    def next_command_sequence(self, session_id: str) -> int:
+        """Return the next sequence number for a session's command queue."""
+
+        with self._session() as session:
+            statement = select(func.max(Command.sequence)).where(
+                Command.session_id == session_id
+            )
+            max_sequence = session.exec(statement).first()
+            if isinstance(max_sequence, tuple):
+                max_sequence = max_sequence[0]
+            return (max_sequence if max_sequence is not None else -1) + 1
 
     def record_command_result(
         self,

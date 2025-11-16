@@ -65,8 +65,10 @@ Implement the FastAPI application surface for repository initialization, session
 - Added `debug_server/api/` with FastAPI app wiring, bearer-token middleware, repository/session/command/token routers, and shared schemas.
 - Added API docs plus README/spec updates covering the new service surface.
 - Created FastAPI-focused pytest suite under `tests/api/`.
+- Ensured command queue API increments per-session sequence numbers and added `tests/api/test_sessions.py::test_commands_preserve_enqueue_order` to verify ordering.
 - Commands executed:
   - `ruff check`
   - `black debug_server/api tests/api`
   - `mypy debug_server/api`
   - `pytest tests/api`
+  - `PYTHONPATH=. pytest tests/api/test_sessions.py`

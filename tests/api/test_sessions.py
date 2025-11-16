@@ -74,6 +74,45 @@ def test_session_lifecycle_and_artifacts(
     assert cancel.status_code == 200
 
 
+def test_commands_preserve_enqueue_order(
+    client: TestClient, metadata_store: MetadataStore
+) -> None:
+    _create_repo(metadata_store)
+    _, token_value = metadata_store.create_token(
+        "runner",
+        scopes=["sessions:read", "sessions:write", "commands:write"],
+    )
+    create_response = client.post(
+        "/sessions",
+        json={"repository": "demo", "commit_sha": "abc1234"},
+        headers=_auth_header(token_value),
+    )
+    assert create_response.status_code == 201
+    session_id = create_response.json()["id"]
+
+    first = client.post(
+        f"/sessions/{session_id}/commands",
+        json={"argv": ["echo", "first"]},
+        headers=_auth_header(token_value),
+    )
+    assert first.status_code == 201
+    second = client.post(
+        f"/sessions/{session_id}/commands",
+        json={"argv": ["echo", "second"]},
+        headers=_auth_header(token_value),
+    )
+    assert second.status_code == 201
+
+    commands = client.get(
+        f"/sessions/{session_id}/commands",
+        headers=_auth_header(token_value),
+    )
+    assert commands.status_code == 200
+    payload = commands.json()
+    assert [cmd["command"] for cmd in payload] == ["echo first", "echo second"]
+    assert [cmd["sequence"] for cmd in payload] == [0, 1]
+
+
 def test_session_missing_repository(client: TestClient, metadata_store: MetadataStore) -> None:
     _, token_value = metadata_store.create_token("runner", scopes=["sessions:write"])
     response = client.post(
