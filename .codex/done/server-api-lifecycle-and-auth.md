@@ -3,7 +3,7 @@
 - **ID**: T-006
 - **Created**: 2024-07-30
 - **Owner**: gpt-5-codex
-- **Status**: Open
+- **Status**: Completed
 
 ## Goal
 Implement the FastAPI application surface for repository initialization, session lifecycle, command queueing, artifact downloads, and bearer-token authentication over HTTP/WebSocket, aligning with the architecture described in `.codex/spec.md`.
@@ -53,10 +53,20 @@ Implement the FastAPI application surface for repository initialization, session
 * Expose health and readiness endpoints consumed by observability tasks.
 
 ## Completion Checklist
-* [ ] Code implemented
-* [ ] Tests written/updated and passing
-* [ ] Examples added/updated
-* [ ] Docs updated where needed
-* [ ] Linting/formatting clean
-* [ ] Review complete
-* [ ] **Move this file to** `.codex/done/` **when all boxes are checked**
+* [x] Code implemented
+* [x] Tests written/updated and passing
+* [x] Examples added/updated
+* [x] Docs updated where needed
+* [x] Linting/formatting clean
+* [x] Review complete
+* [x] **Move this file to** `.codex/done/` **when all boxes are checked**
+
+## Completion Notes
+- Added `debug_server/api/` with FastAPI app wiring, bearer-token middleware, repository/session/command/token routers, and shared schemas.
+- Added API docs plus README/spec updates covering the new service surface.
+- Created FastAPI-focused pytest suite under `tests/api/`.
+- Commands executed:
+  - `ruff check`
+  - `black debug_server/api tests/api`
+  - `mypy debug_server/api`
+  - `pytest tests/api`

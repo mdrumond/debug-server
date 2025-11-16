@@ -70,3 +70,14 @@ debug-server configure --base-url https://debug.example.com --token sk-xxx
 ```
 
 Run `debug-server --help` or see [`docs/cli.md`](docs/cli.md) for command walkthroughs covering repository initialization, session creation, log streaming, debugger control, and artifact downloads.
+
+## FastAPI Service
+
+The server API ships inside this repository under `debug_server/api`. Launch it locally with Uvicorn once the metadata database has been bootstrapped:
+
+```bash
+pip install -e .[dev]
+uvicorn debug_server.api.main:app --reload
+```
+
+Authenticate every HTTP and WebSocket request with a bearer token created via `python -m debug_server.db.admin create-token <name>`. The FastAPI app enforces scopes such as `sessions:write`, `commands:write`, and `artifacts:read` so you can mint limited tokens for automation. The `/docs` and `/redoc` routes expose the OpenAPI schema, while [`docs/api.md`](docs/api.md) documents the high-level workflow for repository initialization, session management, command queueing, and artifact downloads.
