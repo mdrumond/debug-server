@@ -2,6 +2,9 @@ from __future__ import annotations
 
 import sys
 from dataclasses import dataclass
+from pathlib import Path
+
+import pytest
 
 from debug_server.db import MetadataStore
 from debug_server.runner.debuggers import (
@@ -13,7 +16,7 @@ from debug_server.runner.debuggers import (
 
 @dataclass
 class FakeLease:
-    path: str = "."
+    path: Path = Path(".")
 
 
 class FakeSupervisor:
@@ -52,5 +55,18 @@ def test_debugpy_command_shape(metadata_store: MetadataStore) -> None:
 
     state = metadata_store.get_debugger_state("sess-1")
     assert state is not None
-    assert state.last_event == "process-exited"
+    assert state.last_event == "tunnel-ready"
     assert "tunnel" in state.payload
+
+
+def test_debugpy_requires_module_or_script(metadata_store: MetadataStore) -> None:
+    tunnel_manager = DebuggerTunnelManager(metadata_store, host="localhost")
+    adapter = DebugpyAdapter(
+        supervisor=FakeSupervisor(),
+        tunnel_manager=tunnel_manager,
+        metadata_store=metadata_store,
+    )
+    request = DebugpyLaunchRequest(wait_for_client=False)
+
+    with pytest.raises(ValueError, match="Either module or script must be specified"):
+        adapter.start("sess-2", FakeLease(), request)

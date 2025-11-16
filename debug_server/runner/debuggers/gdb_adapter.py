@@ -41,6 +41,11 @@ class GDBAdapter:
         self, session_id: str, lease: Any, request: NativeDebuggerLaunchRequest
     ) -> DebuggerLaunch:
         tunnel = self.tunnel_manager.open_tunnel(session_id, "gdb")
+        self.metadata_store.update_debugger_state(
+            session_id,
+            last_event="tunnel-ready",
+            payload={"tunnel": tunnel.to_payload()},
+        )
         env = dict(request.env or {})
         env.setdefault("DEBUG_SESSION_TOKEN", tunnel.token)
         env.setdefault("DEBUG_SESSION_URI", tunnel.uri)
@@ -52,11 +57,6 @@ class GDBAdapter:
         ]
         command = CommandSpec(argv=argv, env=env, cwd=request.cwd, log_name="debugger")
         self.supervisor.run_command(session_id=session_id, spec=command, lease=lease)
-        self.metadata_store.update_debugger_state(
-            session_id,
-            last_event="process-exited",
-            payload={"tunnel": tunnel.to_payload()},
-        )
         return DebuggerLaunch(tunnel=tunnel, command=command)
 
 

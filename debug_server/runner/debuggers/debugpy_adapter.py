@@ -49,21 +49,24 @@ class DebugpyAdapter:
 
     def start(self, session_id: str, lease: Any, request: DebugpyLaunchRequest) -> DebuggerLaunch:
         tunnel = self.tunnel_manager.open_tunnel(session_id, "debugpy")
+        self.metadata_store.update_debugger_state(
+            session_id,
+            last_event="tunnel-ready",
+            payload={"tunnel": tunnel.to_payload()},
+        )
         argv = self._build_argv(request, tunnel)
         env = dict(request.env or {})
         env.setdefault("DEBUG_SESSION_TOKEN", tunnel.token)
         env.setdefault("DEBUG_SESSION_URI", tunnel.uri)
         command = CommandSpec(argv=argv, env=env, cwd=request.cwd, log_name="debugger")
         self.supervisor.run_command(session_id=session_id, spec=command, lease=lease)
-        self.metadata_store.update_debugger_state(
-            session_id,
-            last_event="process-exited",
-            payload={"tunnel": tunnel.to_payload()},
-        )
         return DebuggerLaunch(tunnel=tunnel, command=command)
 
     @staticmethod
     def _build_argv(request: DebugpyLaunchRequest, tunnel: DebuggerTunnel) -> list[str]:
+        if not request.module and not request.script:
+            msg = "Either module or script must be specified"
+            raise ValueError(msg)
         argv = [
             sys.executable,
             "-m",

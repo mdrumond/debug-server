@@ -56,6 +56,9 @@ Extend the runner to launch debug sessions via `debugpy`, `gdb`, and `lldb`, exp
 - Adjusted debugger tunnel metadata to publish TCP URIs that match the adapters' raw socket listeners, preventing clients from
   attempting WebSocket upgrades on unavailable routes.
 - Tests: `tests/runner/test_debugger_tunnels.py`.
+- Validated debugpy launch requests require a module or script and surfaced tunnel availability events before debugger start.
+- Added native adapter coverage to verify gdb/lldb command construction and metadata updates.
+- Tests: `tests/runner/test_debugpy_adapter.py`, `tests/runner/test_native_adapters.py`.
 
 ## Completion Checklist
 * [x] Code implemented
