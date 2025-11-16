@@ -4,6 +4,7 @@ import os
 from pathlib import Path
 
 import pytest
+import click
 from click.testing import CliRunner
 
 from client.cli import cloud
@@ -12,7 +13,7 @@ from client.cli.cloud import EncryptedStateStore, require_human_operator
 
 def test_require_human_operator_blocks_ci(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("CI", "1")
-    with pytest.raises(Exception):
+    with pytest.raises(click.UsageError):
         require_human_operator()
 
 

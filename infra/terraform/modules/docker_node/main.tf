@@ -1,4 +1,6 @@
 terraform {
+  required_version = ">= 1.6.0"
+
   required_providers {
     docker = {
       source  = "kreuzwerker/docker"
@@ -54,19 +56,23 @@ resource "docker_image" "app" {
   pull_triggers = [data.docker_registry_image.app.sha256_digest]
 }
 
+locals {
+  env_with_token = merge(var.app_env, var.runner_token != "" ? { "DEBUG_SERVER_TOKEN" = var.runner_token } : {})
+}
+
 resource "docker_container" "app" {
   name  = "${var.stack_name}-app"
-  image = docker_image.app.latest
+  image = docker_image.app.image_id
 
   dynamic "ports" {
     for_each = var.app_ports
     content {
-      internal = tonumber(split(":", ports.value)[1])
-      external = tonumber(split(":", ports.value)[0])
+      internal = tonumber(split(":", ports.value, 2)[1])
+      external = tonumber(split(":", ports.value, 2)[0])
     }
   }
 
-  env = [for pair in merge(var.app_env, var.runner_token == "" ? {} : { "DEBUG_SERVER_TOKEN" = var.runner_token }) : "${pair.key}=${pair.value}"]
+  env = [for pair in local.env_with_token : "${pair.key}=${pair.value}"]
   restart = "unless-stopped"
 }
 

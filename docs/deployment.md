@@ -49,6 +49,15 @@ directory and stores encrypted state under `~/.debug-server/cloud/`. The state
 records Docker hosts, ports, and token metadata so follow-up commands can re-use
 existing stacks.
 
+> **⚠️ Important: Key Management**
+>
+> The `DEBUG_SERVER_OPERATOR_KEY` is used to encrypt and decrypt your local state cache. If
+> you lose or change this key, any previously stored state under `~/.debug-server/cloud/`
+> will become inaccessible and cannot be recovered. This may result in loss of stack
+> metadata and require manual recreation of stacks. Always keep your operator key safe and
+> consistent across sessions. Key rotation is not currently supported; to change your key,
+> you must manually migrate or re-create your state.
+
 ## Human-only guardrails
 
 - Commands abort when common automation markers (`CI`, `DEBUG_SERVER_AGENT`,

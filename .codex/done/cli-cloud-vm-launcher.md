@@ -72,3 +72,4 @@ Provide an optional CLI feature (e.g., `debug-cli cloud up`) that provisions a V
 - Created Terraform Docker module plus Hetzner/Contabo stack entrypoints under `infra/terraform/`.
 - Documented operator workflow and guardrails in `docs/deployment.md`, updated CLI and spec docs, and referenced the new flow from the README.
 - New tests cover the guardrails, tfvars emission, encrypted state, and Terraform template presence.
+- Follow-up tightened encryption (Fernet), path/port validation, Terraform output handling, and documentation for operator key management.

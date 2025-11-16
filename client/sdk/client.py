@@ -106,10 +106,7 @@ class DebugServerClient:
             data = resp.read()
             if not data:
                 return {}
-            parsed = json.loads(data.decode())
-            if not isinstance(parsed, dict):
-                raise RuntimeError("Expected JSON object from server response.")
-            return cast(dict[str, Any], parsed)
+            return json.loads(data.decode())
 
     def _open(
         self,
@@ -134,10 +131,7 @@ class DebugServerClient:
             headers["Authorization"] = f"Bearer {self._token}"
         req = request.Request(url, data=data, headers=headers, method=method)
         try:
-            response = request.urlopen(
-                req, timeout=self._timeout, context=self._ssl_context
-            )
-            return cast(HTTPResponse, response)
+            return request.urlopen(req, timeout=self._timeout, context=self._ssl_context)
         except error.HTTPError as exc:  # pragma: no cover - passthrough for integration
             message = exc.read().decode() or exc.reason
             raise RuntimeError(f"Server error {exc.code}: {message}") from exc
