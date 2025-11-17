@@ -59,8 +59,10 @@ variable "runner_token" {
   sensitive   = true
 }
 
+# The default restart policy keeps the service running unless manually stopped,
+# which helps preserve operator intent.
 variable "restart_policy" {
-  description = "Docker restart policy for the app container (default keeps the service running unless manually stopped to preserve operator intent)"
+  description = "Docker restart policy for the app container (default: unless-stopped)"
   type        = string
   default     = "unless-stopped"
 
