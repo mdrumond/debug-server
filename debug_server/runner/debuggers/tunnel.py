@@ -75,7 +75,7 @@ class DebuggerTunnelManager:
         self.metadata_store.update_debugger_state(
             session_id,
             last_event="tunnel-closed",
-            payload={"tunnel": None},
+            payload={},
         )
 
     def get_state(self, session_id: str) -> DebuggerTunnelState | None:
