@@ -6,8 +6,8 @@ import shutil
 import subprocess
 from pathlib import Path
 
-import pytest
 import click
+import pytest
 from click.testing import CliRunner
 
 from client.cli import cloud
@@ -97,7 +97,7 @@ def test_terraform_invoker_runs(monkeypatch: pytest.MonkeyPatch, tmp_path: Path)
 
     def fake_run(
         cmd: list[str], cwd: Path, check: bool, capture_output: bool
-    ) -> subprocess.CompletedProcess[list[str]]:
+    ) -> subprocess.CompletedProcess[bytes]:
         calls.append((cmd, cwd, check, capture_output))
         return subprocess.CompletedProcess(cmd, 0)
 
@@ -112,7 +112,7 @@ def test_terraform_invoker_runs(monkeypatch: pytest.MonkeyPatch, tmp_path: Path)
 def test_terraform_invoker_requires_binary(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     monkeypatch.setattr(shutil, "which", lambda _name: None)
 
-    def fail_run(*_args: object, **_kwargs: object) -> None:  # pragma: no cover - should not be called
+    def fail_run(*_args: object, **_kwargs: object) -> None:  # pragma: no cover
         raise AssertionError("terraform should not run when binary is missing")
 
     monkeypatch.setattr(subprocess, "run", fail_run)
@@ -129,7 +129,7 @@ def test_terraform_invoker_surfaces_errors(
 
     def fake_run(
         cmd: list[str], cwd: Path, check: bool, capture_output: bool
-    ) -> subprocess.CompletedProcess[list[str]]:
+    ) -> subprocess.CompletedProcess[bytes]:
         raise subprocess.CalledProcessError(returncode=2, cmd=cmd)
 
     monkeypatch.setattr(subprocess, "run", fake_run)
@@ -150,7 +150,7 @@ def test_cloud_up_invokes_terraform_when_apply(
 
     def fake_run(
         cmd: list[str], cwd: Path, check: bool, capture_output: bool
-    ) -> subprocess.CompletedProcess[list[str]]:
+    ) -> subprocess.CompletedProcess[bytes]:
         commands.append((cmd, cwd, check, capture_output))
         return subprocess.CompletedProcess(cmd, 0)
 
