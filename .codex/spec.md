@@ -97,4 +97,9 @@
     - Streaming routes expose `/sessions/{id}/logs` and `/sessions/{id}/debug` WebSocket endpoints that replay history, validate bearer scopes, and fan out new events through the in-memory brokers defined in `debug_server/api/streams.py`.
 - **Shared client SDK for CLI + MCP:** A single Python package (`debug-server-client`) underpins both the Typer-based CLI and the MCP server integration to avoid duplicated protocol logic (see [`.codex/tasks/cli-client-surface.md`](tasks/cli-client-surface.md) and [`.codex/tasks/mcp-server-surface.md`](tasks/mcp-server-surface.md)).
 - **Observability as a first-class module:** Structured logging, Prometheus metrics, and OpenTelemetry tracing are implemented in a shared instrumentation package reused by API, runner, CLI, and MCP components per [`.codex/tasks/observability-pipeline.md`](tasks/observability-pipeline.md).
+- **Human-gated cloud launcher:** The CLI exposes `cloud` commands that render Terraform variables and, when `terraform` is
+  available, call provider-specific stacks (`infra/terraform/*_docker_node`) built on a shared Docker module. Operator identity
+  is enforced via environment guardrails (`DEBUG_SERVER_OPERATOR_ALLOW`, `CI`/`DEBUG_SERVER_AGENT` sentinels), and stack state is
+  encrypted-at-rest under `~/.debug-server/cloud/` using a workstation key. Tokens and Docker endpoints captured in this state
+  allow the multi-server session tracker to reconnect to provisioned hosts without re-applying infrastructure.
 

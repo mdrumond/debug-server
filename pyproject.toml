@@ -17,6 +17,7 @@ dependencies = [
     "rich>=13.7.0",
     # Client CLI + SDK requirements
     "click>=8.0",
+    "cryptography>=43.0.0",
 ]
 
 [project.scripts]
