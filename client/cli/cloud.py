@@ -61,6 +61,11 @@ def require_human_operator() -> None:
             "Cloud provisioning is disabled for agents and CI. "
             "Set DEBUG_SERVER_OPERATOR_ALLOW=1 only when running interactively."
         )
+    if not override:
+        raise click.UsageError(
+            "Cloud provisioning requires explicit human acknowledgement. "
+            "Set DEBUG_SERVER_OPERATOR_ALLOW=1 to confirm you are running interactively."
+        )
 
 
 @dataclass(slots=True)
