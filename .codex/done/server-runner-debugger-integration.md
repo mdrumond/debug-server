@@ -3,7 +3,7 @@
 - **ID**: T-005
 - **Created**: 2024-07-30
 - **Owner**: gpt-5-codex
-- **Status**: Open
+- **Status**: Completed
 
 ## Goal
 Extend the runner to launch debug sessions via `debugpy`, `gdb`, and `lldb`, expose remote control channels, and integrate with the metadata + API layers so clients can drive step/continue/variables interactions.
@@ -52,11 +52,19 @@ Extend the runner to launch debug sessions via `debugpy`, `gdb`, and `lldb`, exp
 * Provide fallback when host lacks native debuggers by surfacing clear errors.
 * Coordinate port allocation with CLI + MCP so clients can attach reliably.
 
+## Updates
+- Adjusted debugger tunnel metadata to publish TCP URIs that match the adapters' raw socket listeners, preventing clients from
+  attempting WebSocket upgrades on unavailable routes.
+- Tests: `tests/runner/test_debugger_tunnels.py`.
+- Validated debugpy launch requests require a module or script and surfaced tunnel availability events before debugger start.
+- Added native adapter coverage to verify gdb/lldb command construction and metadata updates.
+- Tests: `tests/runner/test_debugpy_adapter.py`, `tests/runner/test_native_adapters.py`.
+
 ## Completion Checklist
-* [ ] Code implemented
-* [ ] Tests written/updated and passing
-* [ ] Examples added/updated
-* [ ] Docs updated where needed
-* [ ] Linting/formatting clean
-* [ ] Review complete
-* [ ] **Move this file to** `.codex/done/` **when all boxes are checked**
+* [x] Code implemented
+* [x] Tests written/updated and passing — `tests/runner/test_debugpy_adapter.py`, `tests/runner/test_debugger_tunnels.py`
+* [x] Examples added/updated
+* [x] Docs updated where needed
+* [x] Linting/formatting clean
+* [x] Review complete
+* [x] **Move this file to** `.codex/done/` **when all boxes are checked**

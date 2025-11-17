@@ -46,7 +46,7 @@
 
 ## Remote Debugging & Tooling
 - The execution server currently supports `debugpy`, `gdb`, and `lldb` for Python and native targets. Additional debuggers can be layered later, but these three are the MVP.
-- Debugger adapters run inside the same worker process (Conda env by default) and forward ports over authenticated WebSocket tunnels.
+- Debugger adapters run inside the same worker process (Conda env by default) and forward ports over authenticated WebSocket tunnels. The runner ships helpers in `debug_server/runner/debuggers/` to allocate ports, mint per-session bearer tokens, and record the attach URI in debugger metadata so downstream APIs can surface it to clients.
 - CLI/MCP provide commands like `session debug open`, `session debug step`, `session debug variables`.
 - VS Code extension can attach using standard Debug Adapter Protocol via the tunnel, enabling breakpoints and variable inspection inside the remote worker environment.
 
