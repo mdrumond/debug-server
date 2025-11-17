@@ -82,6 +82,16 @@ def test_inventory_session_round_trip(operator_env: dict[str, str], tmp_path: Pa
     assert refreshed.sessions == {}
 
 
+def test_session_record_requires_session_id() -> None:
+    with pytest.raises(click.UsageError, match="session_id"):
+        SessionRecord.from_dict({"status": "active"})
+
+
+def test_server_record_requires_stack_name() -> None:
+    with pytest.raises(click.UsageError, match="stack_name"):
+        ServerRecord.from_dict({"provider": "hetzner"})
+
+
 def test_inventory_decryption_failure_is_surfaced(
     operator_env: dict[str, str], monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:

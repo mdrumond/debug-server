@@ -59,6 +59,7 @@ Design and implement the CLI-side persistence layer that records cloud launcher 
 ## Follow-up (2025-11-17)
 * Surface cloud inventory decryption failures instead of treating them as empty state, preventing accidental overwrites when the operator key is missing or incorrect.
 * Added regression coverage in `tests/cli/test_cloud_state.py::test_inventory_decryption_failure_is_surfaced`.
+* Use timezone-aware UTC timestamps for inventory records and enforce required identifiers when loading session and server records to avoid silent data corruption. Added guards are covered by `tests/cli/test_cloud_state.py::test_session_record_requires_session_id` and `tests/cli/test_cloud_state.py::test_server_record_requires_stack_name`.
 
 ## Completion Checklist
 * [x] Code implemented

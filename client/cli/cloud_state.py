@@ -14,7 +14,8 @@ if TYPE_CHECKING:
 
 
 def _utc_timestamp() -> str:
-    return dt.datetime.utcnow().replace(microsecond=0).isoformat() + "Z"
+    # Use timezone-aware UTC datetime and format as ISO 8601 with trailing "Z"
+    return dt.datetime.now(dt.UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
 
 @dataclass(slots=True)
@@ -36,8 +37,12 @@ class SessionRecord:
 
     @classmethod
     def from_dict(cls, payload: dict[str, Any]) -> SessionRecord:
+        session_id = payload.get("session_id")
+        if session_id is None:
+            raise click.UsageError("Missing required field 'session_id' in session record payload.")
+
         return cls(
-            session_id=str(payload.get("session_id")),
+            session_id=str(session_id),
             status=str(payload.get("status", "unknown")),
             owner=payload.get("owner") if payload.get("owner") is not None else None,
             token=payload.get("token") if payload.get("token") is not None else None,
@@ -85,8 +90,12 @@ class ServerRecord:
                 if isinstance(record, dict):
                     sessions[session_id] = SessionRecord.from_dict(record)
 
+        stack_name = payload.get("stack_name")
+        if stack_name is None:
+            raise click.UsageError("Missing required field 'stack_name' in server record payload.")
+
         return cls(
-            stack_name=str(payload.get("stack_name")),
+            stack_name=str(stack_name),
             provider=str(payload.get("provider", "")),
             docker_host=str(payload.get("docker_host", "")),
             app_image=str(payload.get("app_image", "")),
