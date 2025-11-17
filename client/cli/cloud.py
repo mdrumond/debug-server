@@ -156,6 +156,22 @@ class EncryptedStateStore:
         try:
             decoded = json.loads(raw.decode("utf-8"))
         except (UnicodeDecodeError, json.JSONDecodeError):
+            # Legacy fallback: validate raw as base64 and Fernet format
+            try:
+                decoded = base64.urlsafe_b64decode(raw)
+            except binascii.Error as exc:
+                raise click.UsageError(
+                    "Failed to decrypt state: legacy file is not valid base64-encoded Fernet ciphertext. "
+                    "Ensure DEBUG_SERVER_OPERATOR_KEY matches the key used during 'cloud up'. "
+                    "If the key is correct, the state file may be corrupted."
+                ) from exc
+            # Fernet tokens start with version byte 0x80 and are at least 80 bytes
+            if len(decoded) < 80 or decoded[0] != 0x80:
+                raise click.UsageError(
+                    "Failed to decrypt state: legacy file is not a valid Fernet token. "
+                    "Ensure DEBUG_SERVER_OPERATOR_KEY matches the key used during 'cloud up'. "
+                    "If the key is correct, the state file may be corrupted."
+                )
             return self._LEGACY_KDF_SALT, raw
 
         if not isinstance(decoded, dict):
