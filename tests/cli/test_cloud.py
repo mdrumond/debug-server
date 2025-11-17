@@ -67,9 +67,7 @@ def test_tfvars_written_and_state_persisted(operator_env: dict[str, str]) -> Non
     assert files, "Encrypted state should be persisted"
 
 
-def test_encrypted_store_round_trip(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_encrypted_store_round_trip(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     store = EncryptedStateStore(base_dir=tmp_path)
     monkeypatch.setenv("DEBUG_SERVER_OPERATOR_KEY", "roundtrip")
     path = store.save("stack", {"example": True})
@@ -122,9 +120,7 @@ def test_terraform_invoker_requires_binary(monkeypatch: pytest.MonkeyPatch, tmp_
         invoker.run("plan")
 
 
-def test_terraform_invoker_surfaces_errors(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
+def test_terraform_invoker_surfaces_errors(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     monkeypatch.setattr(shutil, "which", lambda _name: "terraform")
 
     def fake_run(

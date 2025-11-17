@@ -14,11 +14,12 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import cast
 
+import click
 from cryptography.fernet import Fernet, InvalidToken
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 
-import click
+from .cloud_state import CloudInventory, ServerRecord, SessionRecord
 
 _HUMAN_OVERRIDE_ENV = "DEBUG_SERVER_OPERATOR_ALLOW"
 _AUTOMATION_SENTINELS = (
@@ -29,6 +30,20 @@ _AUTOMATION_SENTINELS = (
 _OPERATOR_KEY_ENV = "DEBUG_SERVER_OPERATOR_KEY"
 _STATE_DIR_ENV = "DEBUG_SERVER_HOME"
 _DEFAULT_STATE_SUBDIR = "cloud"
+_DECRYPT_FAILURE = (
+    "Failed to decrypt state. Ensure DEBUG_SERVER_OPERATOR_KEY matches the key used during "
+    "'cloud up'. If the key is correct, the state file may be corrupted."
+)
+_LEGACY_BASE64_ERROR = (
+    "Failed to decrypt state: legacy file is not valid base64-encoded Fernet ciphertext. "
+    "Ensure DEBUG_SERVER_OPERATOR_KEY matches the key used during 'cloud up'. If the key is "
+    "correct, the state file may be corrupted."
+)
+_LEGACY_TOKEN_ERROR = (
+    "Failed to decrypt state: legacy file is not a valid Fernet token. Ensure "  # noqa: S105
+    "DEBUG_SERVER_OPERATOR_KEY matches the key used during 'cloud up'. If the key is "
+    "correct, the state file may be corrupted."
+)
 
 
 def _config_dir() -> Path:
@@ -160,41 +175,24 @@ class EncryptedStateStore:
             try:
                 decoded = base64.urlsafe_b64decode(raw)
             except binascii.Error as exc:
-                raise click.UsageError(
-                    "Failed to decrypt state: legacy file is not valid base64-encoded Fernet ciphertext. "
-                    "Ensure DEBUG_SERVER_OPERATOR_KEY matches the key used during 'cloud up'. "
-                    "If the key is correct, the state file may be corrupted."
-                ) from exc
+                raise click.UsageError(_LEGACY_BASE64_ERROR) from exc
             # Fernet tokens start with version byte 0x80 and are at least 80 bytes
             if len(decoded) < 80 or decoded[0] != 0x80:
-                raise click.UsageError(
-                    "Failed to decrypt state: legacy file is not a valid Fernet token. "
-                    "Ensure DEBUG_SERVER_OPERATOR_KEY matches the key used during 'cloud up'. "
-                    "If the key is correct, the state file may be corrupted."
-                )
+                raise click.UsageError(_LEGACY_TOKEN_ERROR) from None
             return self._LEGACY_KDF_SALT, raw
 
         if not isinstance(decoded, dict):
-            raise click.UsageError(
-                "Failed to decrypt state. Ensure DEBUG_SERVER_OPERATOR_KEY matches the key used during 'cloud up'. "
-                "If the key is correct, the state file may be corrupted."
-            )
+            raise click.UsageError(_DECRYPT_FAILURE)
 
         salt_b64 = decoded.get("salt")
         ciphertext = decoded.get("ciphertext")
         if not isinstance(salt_b64, str) or not isinstance(ciphertext, str):
-            raise click.UsageError(
-                "Failed to decrypt state. Ensure DEBUG_SERVER_OPERATOR_KEY matches the key used during 'cloud up'. "
-                "If the key is correct, the state file may be corrupted."
-            )
+            raise click.UsageError(_DECRYPT_FAILURE)
 
         try:
             salt = base64.urlsafe_b64decode(salt_b64)
         except binascii.Error as exc:
-            raise click.UsageError(
-                "Failed to decrypt state. Ensure DEBUG_SERVER_OPERATOR_KEY matches the key used during 'cloud up'. "
-                "If the key is correct, the state file may be corrupted."
-            ) from exc
+            raise click.UsageError(_DECRYPT_FAILURE) from exc
 
         return salt, ciphertext.encode("utf-8")
 
@@ -222,13 +220,13 @@ class EncryptedStateStore:
             parsed = json.loads(decrypted.decode("utf-8"))
         except (InvalidToken, json.JSONDecodeError, binascii.Error) as exc:
             raise click.UsageError(
-                "Failed to decrypt state. Ensure DEBUG_SERVER_OPERATOR_KEY matches the key used during "
-                "'cloud up'. If the key is correct, the state file may be corrupted."
+                "Failed to decrypt state. Ensure DEBUG_SERVER_OPERATOR_KEY matches the key "
+                "used during 'cloud up'. If the key is correct, the state file may be corrupted."
             ) from exc
         if not isinstance(parsed, dict):
             raise click.UsageError(
-                "Failed to decrypt state. Ensure DEBUG_SERVER_OPERATOR_KEY matches the key used during "
-                "'cloud up'. If the key is correct, the state file may be corrupted."
+                "Failed to decrypt state. Ensure DEBUG_SERVER_OPERATOR_KEY matches the key "
+                "used during 'cloud up'. If the key is correct, the state file may be corrupted."
             )
         return cast(dict[str, object], parsed)
 
@@ -282,18 +280,21 @@ def _parse_ports(entries: Iterable[str]) -> list[str]:
             host_port_int = int(host_port)
         except ValueError:
             raise click.BadParameter(
-                f"Port mapping '{entry}' has non-integer host port '{host_port}'. Host port must be an integer."
-            )
+                f"Port mapping '{entry}' has non-integer host port '{host_port}'. "
+                "Host port must be an integer."
+            ) from None
         try:
             container_port_int = int(container_port)
         except ValueError:
             raise click.BadParameter(
-                f"Port mapping '{entry}' has non-integer container port '{container_port}'. Container port must be an integer."
-            )
+                f"Port mapping '{entry}' has non-integer container port '{container_port}'. "
+                "Container port must be an integer."
+            ) from None
         for port_val, port_name in [(host_port_int, "host"), (container_port_int, "container")]:
             if not (1 <= port_val <= 65535):
                 raise click.BadParameter(
-                    f"Port mapping '{entry}' has invalid {port_name} port '{port_val}': must be in range 1-65535."
+                    f"Port mapping '{entry}' has invalid {port_name} port '{port_val}': "
+                    "must be in range 1-65535."
                 )
         ports.append(entry)
     return ports
@@ -401,7 +402,7 @@ def cloud_up(
     _render_tfvars_file(tfvars_path, inputs)
 
     store = EncryptedStateStore()
-    state_payload = {
+    state_payload: dict[str, object] = {
         "provider": provider,
         "stack_name": stack_name,
         "working_dir": str(working_dir),
@@ -414,6 +415,22 @@ def cloud_up(
     }
     state_path = store.save(stack_name, state_payload)
     click.echo(f"Persisted encrypted state to {state_path}.")
+
+    inventory = CloudInventory(store)
+    inventory.record_server(
+        ServerRecord(
+            stack_name=stack_name,
+            provider=provider,
+            docker_host=docker_host,
+            app_image=app_image,
+            app_ports=ports,
+            app_env=env_map,
+            token=token,
+            working_dir=str(working_dir),
+            tfvars=str(tfvars_path),
+        )
+    )
+    click.echo("Updated multi-server inventory for operator tracking.")
 
     if dry_run:
         click.echo("Dry run complete; terraform commands were not executed.")
@@ -455,8 +472,9 @@ def cloud_destroy(stack_name: str, dry_run: bool, stack_dir: Path | None = None)
         click.echo("Stored state is missing terraform paths; using --stack-dir override.")
     else:
         raise click.UsageError(
-            "Stored state is corrupted or incomplete. Missing required fields 'working_dir' or 'tfvars'. "
-            "You may need to run 'cloud up' again or manually delete the state file."
+            "Stored state is corrupted or incomplete. Missing required fields "
+            "'working_dir' or 'tfvars'. You may need to run 'cloud up' again or manually "
+            "delete the state file."
         )
     if not tfvars_path.exists():
         click.echo("tfvars file missing; re-rendering from stored state.")
@@ -470,4 +488,102 @@ def cloud_destroy(stack_name: str, dry_run: bool, stack_dir: Path | None = None)
     invoker = TerraformInvoker(working_dir=working_dir)
     invoker.run("destroy", "-auto-approve")
     store.delete(stack_name)
+    CloudInventory(store).remove_server(stack_name)
     click.echo(f"Destroyed stack '{stack_name}' and removed state cache.")
+
+
+@cloud.command("list")
+def cloud_list() -> None:
+    """List all provisioned stacks tracked by the inventory."""
+
+    inventory = CloudInventory()
+    servers = inventory.list_servers()
+    if not servers:
+        click.echo("No stacks recorded. Use 'cloud up' to register a stack.")
+        return
+
+    for server in servers:
+        click.echo(
+            f"{server.stack_name}: provider={server.provider} host={server.docker_host} "
+            f"sessions={len(server.sessions)} updated={server.updated_at}"
+        )
+
+
+@cloud.command("status")
+@click.option("--stack-name", help="Stack name to inspect (defaults to all).")
+def cloud_status(stack_name: str | None) -> None:
+    """Show detailed status for one or all stacks."""
+
+    inventory = CloudInventory()
+    if stack_name:
+        server = inventory.get_server(stack_name)
+        if server is None:
+            raise click.UsageError(f"Stack '{stack_name}' is not tracked.")
+        servers = [server]
+    else:
+        servers = inventory.list_servers()
+
+    if not servers:
+        click.echo("No stacks recorded. Use 'cloud up' to register a stack.")
+        return
+
+    for server in servers:
+        click.echo(f"Stack: {server.stack_name}")
+        click.echo(f"  Provider: {server.provider}")
+        click.echo(f"  Docker host: {server.docker_host}")
+        click.echo(f"  App image: {server.app_image}")
+        click.echo(f"  Ports: {', '.join(server.app_ports) if server.app_ports else 'none'}")
+        click.echo(f"  Sessions tracked: {len(server.sessions)}")
+        click.echo(f"  tfvars: {server.tfvars}")
+        click.echo(f"  Updated: {server.updated_at}")
+
+
+@cloud.command("sessions")
+@click.option("--stack-name", help="Limit to a specific stack or target for updates.")
+@click.option("--session-id", help="Session identifier to upsert or delete.")
+@click.option("--status", "session_status", help="Status to record (defaults to active).")
+@click.option("--owner", help="Owner or assignee of the session.")
+@click.option("--token", help="API or runner token associated with the session.")
+@click.option("--drain", is_flag=True, help="Mark the session as draining before teardown.")
+@click.option("--delete", "delete_session", is_flag=True, help="Remove a session from tracking.")
+def cloud_sessions(
+    stack_name: str | None,
+    session_id: str | None,
+    session_status: str | None,
+    owner: str | None,
+    token: str | None,
+    drain: bool,
+    delete_session: bool,
+) -> None:
+    """Inspect or mutate session assignments for tracked stacks."""
+
+    inventory = CloudInventory()
+    if session_id:
+        if not stack_name:
+            raise click.UsageError("--stack-name is required when modifying a session entry.")
+        if delete_session:
+            inventory.remove_session(stack_name, session_id)
+            click.echo(f"Removed session {session_id} from stack '{stack_name}'.")
+            return
+        status = "draining" if drain else session_status or "active"
+        record = SessionRecord(session_id=session_id, status=status, owner=owner, token=token)
+        inventory.upsert_session(stack_name, record)
+        click.echo(f"Recorded session {session_id} on stack '{stack_name}' with status '{status}'.")
+        return
+
+    servers = [inventory.get_server(stack_name)] if stack_name else inventory.list_servers()
+    servers = [s for s in servers if s is not None]
+    if not servers:
+        click.echo("No tracked sessions. Use --session-id to add one or run 'cloud up'.")
+        return
+
+    for server in servers:
+        click.echo(f"Stack: {server.stack_name}")
+        if not server.sessions:
+            click.echo("  (no sessions recorded)")
+            continue
+        for sess in server.sessions.values():
+            click.echo(
+                f"  {sess.session_id}: status={sess.status} owner={sess.owner or 'n/a'} "
+                f"token={'set' if sess.token else 'n/a'} updated={sess.updated_at}"
+            )

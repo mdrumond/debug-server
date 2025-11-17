@@ -3,7 +3,7 @@
 - **ID**: T-012
 - **Created**: 2024-08-02
 - **Owner**: gpt-5-codex
-- **Status**: Open
+- **Status**: Done
 
 ## Goal
 Design and implement the CLI-side persistence layer that records cloud launcher outputs (provider endpoints, authentication tokens, running sessions) so human operators can safely manage multiple remote debug-server instances. The state store must integrate with the Terraform workflow in [`.codex/tasks/cli-cloud-vm-launcher.md`](cli-cloud-vm-launcher.md) while remaining inaccessible to agents/automation.
@@ -57,10 +57,10 @@ Design and implement the CLI-side persistence layer that records cloud launcher 
 * Coordinate schema versions with Terraform backend outputs to avoid drift between launcher and session-tracking commands.
 
 ## Completion Checklist
-* [ ] Code implemented
-* [ ] Tests written/updated and passing
-* [ ] Examples added/updated
-* [ ] Docs updated where needed
-* [ ] Linting/formatting clean
-* [ ] Review complete
-* [ ] **Move this file to** `.codex/done/` **when all boxes are checked**
+* [x] Code implemented
+* [x] Tests written/updated and passing (`pytest tests/cli`)
+* [x] Examples added/updated
+* [x] Docs updated where needed
+* [x] Linting/formatting clean (`ruff check client/cli tests/cli`, `black client/cli tests/cli`, `mypy client/cli`)
+* [x] Review complete
+* [x] **Move this file to** `.codex/done/` **when all boxes are checked**

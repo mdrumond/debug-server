@@ -89,9 +89,22 @@ debug-server cloud up \
 
 # tear everything down once finished
 debug-server cloud destroy --stack-name debug-cloud --apply
+
+# inspect inventory and sessions
+debug-server cloud list
+debug-server cloud status --stack-name debug-cloud
+debug-server cloud sessions --stack-name debug-cloud
 ```
 
 Automation markers such as `CI` or `DEBUG_SERVER_AGENT` block the command by
 default to prevent unintended infrastructure launches. State for each stack is
 encrypted and written to `~/.debug-server/cloud/` using
 `DEBUG_SERVER_OPERATOR_KEY`.
+
+The CLI also maintains an **inventory** file in the same directory that
+summarizes every tracked stack and its active sessions. `cloud list` and
+`cloud status` surface the servers you have launched, while `cloud sessions`
+lets operators record or drain per-session ownership before destroying a stack.
+Set `--session-id` with `--stack-name` to register or update a session,
+`--drain` to mark it for teardown, and `--delete` to remove it from the
+inventory once it is closed.
