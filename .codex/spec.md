@@ -101,5 +101,7 @@
   available, call provider-specific stacks (`infra/terraform/*_docker_node`) built on a shared Docker module. Operator identity
   is enforced via environment guardrails (`DEBUG_SERVER_OPERATOR_ALLOW`, `CI`/`DEBUG_SERVER_AGENT` sentinels), and stack state is
   encrypted-at-rest under `~/.debug-server/cloud/` using a workstation key. Tokens and Docker endpoints captured in this state
-  allow the multi-server session tracker to reconnect to provisioned hosts without re-applying infrastructure.
+  allow the multi-server session tracker to reconnect to provisioned hosts without re-applying infrastructure. An encrypted
+  inventory file keeps per-stack metadata and session ownership so operators can run `cloud list`, `cloud status`, and
+  `cloud sessions` to review or drain workloads before tearing down infrastructure.
 

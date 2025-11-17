@@ -3,7 +3,7 @@
 - **ID**: T-012
 - **Created**: 2024-08-02
 - **Owner**: gpt-5-codex
-- **Status**: Open
+- **Status**: Done
 
 ## Goal
 Design and implement the CLI-side persistence layer that records cloud launcher outputs (provider endpoints, authentication tokens, running sessions) so human operators can safely manage multiple remote debug-server instances. The state store must integrate with the Terraform workflow in [`.codex/tasks/cli-cloud-vm-launcher.md`](cli-cloud-vm-launcher.md) while remaining inaccessible to agents/automation.
@@ -56,11 +56,16 @@ Design and implement the CLI-side persistence layer that records cloud launcher 
 * Consider secure storage backends (OS keyring, encrypted files) and portability across macOS/Linux workstations.
 * Coordinate schema versions with Terraform backend outputs to avoid drift between launcher and session-tracking commands.
 
+## Follow-up (2025-11-17)
+* Surface cloud inventory decryption failures instead of treating them as empty state, preventing accidental overwrites when the operator key is missing or incorrect.
+* Added regression coverage in `tests/cli/test_cloud_state.py::test_inventory_decryption_failure_is_surfaced`.
+* Use timezone-aware UTC timestamps for inventory records and enforce required identifiers when loading session and server records to avoid silent data corruption. Added guards are covered by `tests/cli/test_cloud_state.py::test_session_record_requires_session_id` and `tests/cli/test_cloud_state.py::test_server_record_requires_stack_name`.
+
 ## Completion Checklist
-* [ ] Code implemented
-* [ ] Tests written/updated and passing
-* [ ] Examples added/updated
-* [ ] Docs updated where needed
-* [ ] Linting/formatting clean
-* [ ] Review complete
-* [ ] **Move this file to** `.codex/done/` **when all boxes are checked**
+* [x] Code implemented
+* [x] Tests written/updated and passing (`pytest tests/cli`)
+* [x] Examples added/updated
+* [x] Docs updated where needed
+* [x] Linting/formatting clean (`ruff check client/cli tests/cli`, `black client/cli tests/cli`, `mypy client/cli`)
+* [x] Review complete
+* [x] **Move this file to** `.codex/done/` **when all boxes are checked**
