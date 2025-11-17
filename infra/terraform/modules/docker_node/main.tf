@@ -59,6 +59,17 @@ variable "runner_token" {
   sensitive   = true
 }
 
+variable "restart_policy" {
+  description = "Docker restart policy for the app container (default keeps the service running unless manually stopped to preserve operator intent)"
+  type        = string
+  default     = "unless-stopped"
+
+  validation {
+    condition     = contains(["no", "on-failure", "always", "unless-stopped"], var.restart_policy)
+    error_message = "Restart policy must be one of: no, on-failure, always, unless-stopped."
+  }
+}
+
 provider "docker" {
   host = var.docker_host
 }
@@ -91,8 +102,8 @@ resource "docker_container" "app" {
     }
   }
 
-  env = [for k, v in local.env_with_token : "${k}=${v}"]
-  restart = "unless-stopped"
+  env     = [for k, v in local.env_with_token : "${k}=${v}"]
+  restart = var.restart_policy
 }
 
 output "container_name" {
