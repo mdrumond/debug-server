@@ -56,6 +56,10 @@ Design and implement the CLI-side persistence layer that records cloud launcher 
 * Consider secure storage backends (OS keyring, encrypted files) and portability across macOS/Linux workstations.
 * Coordinate schema versions with Terraform backend outputs to avoid drift between launcher and session-tracking commands.
 
+## Follow-up (2025-11-17)
+* Surface cloud inventory decryption failures instead of treating them as empty state, preventing accidental overwrites when the operator key is missing or incorrect.
+* Added regression coverage in `tests/cli/test_cloud_state.py::test_inventory_decryption_failure_is_surfaced`.
+
 ## Completion Checklist
 * [x] Code implemented
 * [x] Tests written/updated and passing (`pytest tests/cli`)

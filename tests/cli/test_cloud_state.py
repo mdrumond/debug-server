@@ -1,6 +1,7 @@
 import os
 from pathlib import Path
 
+import click
 import pytest
 
 from client.cli.cloud import EncryptedStateStore
@@ -79,3 +80,32 @@ def test_inventory_session_round_trip(operator_env: dict[str, str], tmp_path: Pa
     refreshed = inventory.get_server("sandbox")
     assert refreshed is not None
     assert refreshed.sessions == {}
+
+
+def test_inventory_decryption_failure_is_surfaced(
+    operator_env: dict[str, str], monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    store = EncryptedStateStore()
+    inventory = CloudInventory(store)
+
+    working_dir = tmp_path / "broken"
+    tfvars = working_dir / "terraform.tfvars.json"
+
+    inventory.record_server(
+        ServerRecord(
+            stack_name="broken",  # will be unreadable after the key change
+            provider="hetzner",
+            docker_host="tcp://10.0.0.12:2376",
+            app_image="ghcr.io/example/debug-server:latest",
+            app_ports=[],
+            app_env={},
+            token=None,
+            working_dir=str(working_dir),
+            tfvars=str(tfvars),
+        )
+    )
+
+    monkeypatch.setenv("DEBUG_SERVER_OPERATOR_KEY", "wrong-key")
+
+    with pytest.raises(click.UsageError, match="Failed to decrypt cloud inventory"):
+        inventory.list_servers()

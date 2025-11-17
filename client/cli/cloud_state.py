@@ -127,8 +127,11 @@ class CloudInventory:
             return self._default()
         try:
             data = self.store.load(self._INVENTORY_NAME)
-        except click.UsageError:
-            return self._default()
+        except click.UsageError as exc:
+            raise click.UsageError(
+                "Failed to decrypt cloud inventory. Ensure DEBUG_SERVER_OPERATOR_KEY matches the key "
+                "used when the inventory was created and that the file is not corrupted."
+            ) from exc
         if not isinstance(data, dict):
             return self._default()
         if data.get("version") != self._SCHEMA_VERSION:
