@@ -264,10 +264,15 @@ def _parse_ports(entries: Iterable[str]) -> list[str]:
         host_port, container_port = entry.split(":", 1)
         try:
             host_port_int = int(host_port)
+        except ValueError:
+            raise click.BadParameter(
+                f"Port mapping '{entry}' has non-integer host port '{host_port}'. Host port must be an integer."
+            )
+        try:
             container_port_int = int(container_port)
         except ValueError:
             raise click.BadParameter(
-                f"Port mapping '{entry}' must use integer values for both host and container ports."
+                f"Port mapping '{entry}' has non-integer container port '{container_port}'. Container port must be an integer."
             )
         for port_val, port_name in [(host_port_int, "host"), (container_port_int, "container")]:
             if not (1 <= port_val <= 65535):
