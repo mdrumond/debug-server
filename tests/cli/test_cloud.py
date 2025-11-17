@@ -57,9 +57,10 @@ def test_tfvars_written_and_state_persisted(operator_env: dict[str, str]) -> Non
 
     tfvars = Path("infra/terraform/hetzner_docker_node/terraform.tfvars.json")
     assert tfvars.exists()
-    payload = tfvars.read_text()
-    assert "hetzner" in payload
-    assert "ghcr.io/example" in payload
+    payload = json.loads(tfvars.read_text())
+    assert payload["stack_name"] == "debug-cloud"
+    assert payload["docker_host"] == "tcp://10.0.0.5:2376"
+    assert payload["app_image"].startswith("ghcr.io/example")
 
     state_dir = Path(operator_env["DEBUG_SERVER_HOME"]) / "cloud"
     files = list(state_dir.glob("*.json.enc"))
@@ -108,6 +109,19 @@ def test_terraform_invoker_runs(monkeypatch: pytest.MonkeyPatch, tmp_path: Path)
     assert calls == [(["terraform", "plan"], tmp_path, True, False)]
 
 
+def test_terraform_invoker_requires_binary(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    monkeypatch.setattr(shutil, "which", lambda _name: None)
+
+    def fail_run(*_args: object, **_kwargs: object) -> None:  # pragma: no cover - should not be called
+        raise AssertionError("terraform should not run when binary is missing")
+
+    monkeypatch.setattr(subprocess, "run", fail_run)
+
+    invoker = TerraformInvoker(working_dir=tmp_path)
+    with pytest.raises(click.UsageError):
+        invoker.run("plan")
+
+
 def test_terraform_invoker_surfaces_errors(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
@@ -123,3 +137,53 @@ def test_terraform_invoker_surfaces_errors(
     invoker = TerraformInvoker(working_dir=tmp_path)
     with pytest.raises(click.ClickException):
         invoker.run("apply")
+
+
+def test_cloud_up_invokes_terraform_when_apply(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, operator_env: dict[str, str]
+) -> None:
+    stack_dir = tmp_path / "stack"
+    stack_dir.mkdir()
+
+    monkeypatch.setattr(shutil, "which", lambda _name: "terraform")
+    commands: list[tuple[list[str], Path, bool, bool]] = []
+
+    def fake_run(
+        cmd: list[str], cwd: Path, check: bool, capture_output: bool
+    ) -> subprocess.CompletedProcess[list[str]]:
+        commands.append((cmd, cwd, check, capture_output))
+        return subprocess.CompletedProcess(cmd, 0)
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+
+    runner = CliRunner()
+    result = runner.invoke(
+        cloud.cloud,
+        [
+            "up",
+            "--provider",
+            "hetzner",
+            "--docker-host",
+            "tcp://10.0.0.5:2376",
+            "--image",
+            "ghcr.io/example/debug-server:latest",
+            "--env",
+            "ENV=prod",
+            "--port",
+            "8000:8000",
+            "--stack-dir",
+            str(stack_dir),
+            "--apply",
+        ],
+        env=operator_env,
+    )
+
+    assert result.exit_code == 0, result.output
+    assert commands == [
+        (["terraform", "init"], stack_dir, True, False),
+        (["terraform", "plan"], stack_dir, True, False),
+        (["terraform", "apply", "-auto-approve"], stack_dir, True, False),
+    ]
+
+    tfvars = stack_dir / "terraform.tfvars.json"
+    assert tfvars.exists()
