@@ -319,7 +319,11 @@ class MetadataStore:
                 if payload is None:
                     merged = {}
                 else:
-                    merged.update(payload)
+                    for k, v in payload.items():
+                        if v is None:
+                            merged.pop(k, None)
+                        else:
+                            merged[k] = v
                 state.payload = merged
             state.updated_at = datetime.now(UTC)
             session.add(state)
