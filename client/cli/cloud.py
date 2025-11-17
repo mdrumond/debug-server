@@ -233,7 +233,7 @@ def _parse_env_entries(entries: Iterable[str]) -> dict[str, str]:
         if "=" not in entry:
             raise click.BadParameter("Environment entries must be KEY=VALUE pairs.")
         key, value = entry.split("=", 1)
-        env[key.strip()] = value
+        env[key.strip()] = value.strip()
     return env
 
 
