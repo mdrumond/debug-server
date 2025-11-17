@@ -80,7 +80,6 @@ class TerraformInputs:
 
     def to_tfvars(self) -> dict[str, object]:
         payload: dict[str, object] = {
-            "provider": self.provider,
             "stack_name": self.stack_name,
             "docker_host": self.docker_host,
             "app_image": self.app_image,
